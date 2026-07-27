@@ -1,16 +1,15 @@
 -- =======================================================
--- SCRIPT CHECK RANDOM - HIỂN THỊ STATUS BELI VÀ WEBHOOK
+-- SCRIPT CHECK RANDOM - CHỜ ACC VỀ 0S & AUTO TRIGGER CHANGE ACC
 -- =======================================================
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
-local WAIT_HUB_TIME = 25                 -- Chờ 30s đầu cho Hub chạy tới NPC
-local CHECK_SCAN_TIME = 15                -- Quét Beli từ 30s -> 35s
-local MIN_MONEY_SPENT = 300000           -- Mất >= 300k Beli mới tính là đã Random
-local MAX_ACC = 15                       -- Tối đa 15 acc
-local REST_TIME = 15 * 60                -- Nghỉ 15 phút (900s)
-local COOLDOWN_RANDOM = 2 * 60 * 60      -- Cooldown 2 tiếng
-local WEBHOOK_INTERVAL = 30              -- Webhook đếm ngược 30s/lần
-local FILE_NAME = "RandomAccList.json"   -- File workspace
+local WAIT_HUB_TIME = 25                 -- Chờ Hub chạy tới NPC
+local CHECK_SCAN_TIME = 15               -- Quét Beli
+local MIN_MONEY_SPENT = 300000          -- Mất >= 300k Beli mới tính
+local MAX_ACC = 15                      -- Tối đa 15 acc
+local COOLDOWN_RANDOM = 2 * 60 * 60     -- Cooldown 2 tiếng (7200s)
+local WEBHOOK_INTERVAL = 30             -- Webhook đếm ngược 30s/lần khi chờ
+local FILE_NAME = "RandomAccList.json"  -- File workspace
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -34,17 +33,15 @@ local function getPlayerBeli()
 end
 
 -- -------------------------------------------------------
--- HÀM LẤY TÊN TRÁI QUỶ TRONG TÚI/KHO (NẾU MẤT TIỀN)
+-- HÀM LẤY TÊN TRÁI QUỶ
 -- -------------------------------------------------------
 local function getFruitName()
     local fruitNameFound = "Trái Quỷ Mới"
     pcall(function()
-        -- 1. Check Backpack & Character
         local backpack = LocalPlayer:FindFirstChild("Backpack")
         if backpack then
             for _, item in ipairs(backpack:GetChildren()) do
-                local itemName = string.lower(item.Name)
-                if string.find(itemName, "fruit") or string.find(itemName, "trái") then
+                if string.find(string.lower(item.Name), "fruit") or string.find(string.lower(item.Name), "trái") then
                     fruitNameFound = item.Name
                     return
                 end
@@ -61,7 +58,6 @@ local function getFruitName()
             end
         end
 
-        -- 2. Check Stored Inventory
         local getInventory = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
         if type(getInventory) == "table" then
             for _, item in ipairs(getInventory) do
@@ -98,7 +94,7 @@ local function sendDiscordWebhook(titleText, descriptionText, colorCode)
     end)
 end
 
-local function sendSummaryWebhook(accList, isFull, readyAccName)
+local function sendSummaryWebhook(accList, isWaiting, readyAccName)
     local currentTime = os.time()
     local descriptionText = "📊 **DANH SÁCH ACC ĐÃ RANDOM XONG (" .. #accList .. "/" .. MAX_ACC .. ")**\n\n"
     
@@ -117,12 +113,12 @@ local function sendSummaryWebhook(accList, isFull, readyAccName)
     local colorCode = 65280
 
     if readyAccName then
-        titleText = "🚀 PHÁT HIỆN ACC VỀ 0S - KÍCH HOẠT TRADE NGAY!"
-        descriptionText = descriptionText .. "\n🔥 **Acc `" .. readyAccName .. "` đã đủ 2 tiếng! Ngắt 15 phút để Trade.**"
+        titleText = "🚀 PHÁT HIỆN ACC VỀ 0S - ĐÃ KÍCH HOẠT ĐẨY DÒNG 1!"
+        descriptionText = descriptionText .. "\n🔥 **Acc `" .. readyAccName .. "` đã đủ 2 tiếng! Đang delay 1 phút để Tool Termux chuyển acc...**"
         colorCode = 16766720
-    elseif isFull then
-        titleText = "🎉 HOÀN THÀNH BẢNG 15 ACC RANDOM"
-        descriptionText = descriptionText .. "\n🛑 **Đã gom đủ 15 Acc! Đang chờ 15 phút.**"
+    elseif isWaiting then
+        titleText = "⏳ ĐÃ ĐỦ 15 ACC - ĐANG TREO CHỜ ACC VỀ 0S"
+        descriptionText = descriptionText .. "\n🛑 **Đã gom đủ 15 Acc! Script đang nghỉ liên tục để đợi acc chín...**"
         colorCode = 16711680
     end
 
@@ -175,18 +171,18 @@ timerLabel.Parent = screenGui
 -- -------------------------------------------------------
 task.spawn(function()
 
-    -- 1. LẤY SỐ TIỀN BELI BAN ĐẦU VÀ HIỂN THỊ STATUS
+    -- 1. LẤY SỐ TIỀN BELI BAN ĐẦU
     local initialBeli = getPlayerBeli()
     local hasRandomed = false
     local spentBeli = 0
 
-    -- 2. ĐỢI 30S ĐẦU TIÊN (HIỂN THỊ SỐ BELI BAN ĐẦU TRÊN STATUS)
+    -- 2. ĐỢI HUB RUN TỚI NPC
     for waitTime = WAIT_HUB_TIME, 1, -1 do
         timerLabel.Text = string.format("⏳ Chờ Hub Random: %ds | Beli ban đầu: $%s", waitTime, string.format("%d", initialBeli))
         task.wait(1)
     end
 
-    -- 3. TỪ GIÂY 30 -> 35: QUÉT SỐ BELI LIÊN TỤC
+    -- 3. QUÉT SỐ BELI
     for scanTime = CHECK_SCAN_TIME, 1, -1 do
         local currentBeli = getPlayerBeli()
         if initialBeli > 0 then
@@ -200,29 +196,33 @@ task.spawn(function()
         task.wait(1)
     end
 
-    -- 4. BẬT 2 SCRIPT CHANGE ACC PHỤ
-    task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/checkonline.lua'))() end) end)
-    task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/check-info.lua'))() end) end)
+    -- 4. HÀM BẬT 2 SCRIPT CHANGE ACC
+    local function triggerChangeAccScripts()
+        task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/checkonline.lua'))() end) end)
+        task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/check-info.lua'))() end) end)
+    end
 
     local playerName = LocalPlayer.Name
 
-    -- 5. NẾU KHÔNG TRỪ ĐỦ BELI (CHƯA RANDOM / COOLDOWN) -> GỬI WEBHOOK ĐỎ
+    -- 5. NẾU KHÔNG ĐỦ BELI (CHƯA RANDOM / COOLDOWN) -> BỎ QUA & TRIGGER CHANGE ACC
     if not hasRandomed then
         timerLabel.TextColor3 = Color3.fromRGB(255, 69, 0)
-        timerLabel.Text = "❌ Không trừ Beli (Chưa Random/Cooldown)! Bỏ qua..."
+        timerLabel.Text = "❌ Không trừ Beli (Chưa Random/Cooldown)! Chuyển acc..."
         
         sendDiscordWebhook(
             "❌ ACC CHƯA RANDOM / ĐANG COOLDOWN",
-            "👤 **Account:** `" .. playerName .. "`\n💰 **Beli ban đầu:** `$" .. string.format("%d", initialBeli) .. "`\n📌 **Trạng thái:** Beli chỉ bị trừ `$" .. string.format("%d", math.max(0, spentBeli)) .. "` (Không đủ >= 300k)!\n⏩ **Hành động:** Bỏ qua acc, đang chuyển acc tiếp theo...",
-            16711680 -- Màu đỏ
+            "👤 **Account:** `" .. playerName .. "`\n💰 **Beli ban đầu:** `$" .. string.format("%d", initialBeli) .. "`\n📌 **Trạng thái:** Không đủ Beli!\n⏩ **Hành động:** Bật Script Change Acc...",
+            16711680
         )
 
-        task.wait(3)
+        task.wait(2)
+        triggerChangeAccScripts()
+        task.wait(1)
         pcall(function() screenGui:Destroy() end)
         return
     end
 
-    -- 6. NẾU TRỪ ĐỦ BELI -> GỬI WEBHOOK XANH & LƯU WORKSPACE
+    -- 6. NẾU TRỪ ĐỦ BELI -> LƯU DỮ LIỆU
     local fruitName = getFruitName()
     timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
     timerLabel.Text = "✅ Đã mất $" .. string.format("%d", spentBeli) .. " Beli! Đã ghi nhận Acc."
@@ -230,7 +230,7 @@ task.spawn(function()
     sendDiscordWebhook(
         "✅ XÁC NHẬN ACC ĐÃ RANDOM TRÁI QUỶ",
         "👤 **Account:** `" .. playerName .. "`\n💸 **Tiền đã mất:** `$" .. string.format("%d", spentBeli) .. " Beli`\n🍎 **Trái tìm thấy:** `" .. fruitName .. "`\n🎉 **Trạng thái:** Đã lưu vào danh sách chờ Cooldown!",
-        65280 -- Màu xanh lá
+        65280
     )
 
     local accList = loadAccList()
@@ -245,55 +245,70 @@ task.spawn(function()
     end
 
     local currentTotal = #accList
-    sendSummaryWebhook(accList, currentTotal >= MAX_ACC, nil)
 
-    -- ĐỦ 15 ACC -> VÀO CHẾ ĐỘ NGHỈ 15 PHÚT
+    -- NẾU ĐỦ 15 ACC -> CHUYỂN SANG CHẾ ĐỘ NGHỈ LIÊN TỤC CHỜ ACC VỀ 0S
     if currentTotal >= MAX_ACC then
         timerLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-        local triggeredEarly = false
-        local readyAccName = ""
+        local readyAccName = nil
         local webhookTimer = 0
 
-        for restTime = REST_TIME, 1, -1 do
+        -- VÒNG LẶP NGHỈ LIÊN TỤC KHÔNG GIỚI HẠN
+        while true do
             local currentTime = os.time()
+            accList = loadAccList() -- Cập nhật lại danh sách liên tục
+
+            -- Kiểm tra xem có acc nào đã đếm ngược về <= 0s chưa
             for _, acc in ipairs(accList) do
                 if (currentTime - acc.timestamp) >= COOLDOWN_RANDOM then
-                    triggeredEarly = true
                     readyAccName = acc.name
                     break
                 end
             end
 
-            if triggeredEarly then break end
+            -- Nếu đã tìm thấy acc về 0s
+            if readyAccName then break end
 
+            -- Cập nhật Webhook đếm ngược mỗi 30s
             webhookTimer = webhookTimer + 1
             if webhookTimer >= WEBHOOK_INTERVAL then
                 sendSummaryWebhook(accList, true, nil)
                 webhookTimer = 0
             end
 
-            local mins = math.floor(restTime / 60)
-            local secs = restTime % 60
-            timerLabel.Text = string.format("🛑 Đủ 15 Acc! Nghỉ %02d:%02d (Webhook 30s)", mins, secs)
+            timerLabel.Text = "🛑 Đủ 15 Acc! Đang nghỉ liên tục chờ acc về 0s..."
             task.wait(1)
         end
 
-        if triggeredEarly then
-            timerLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
-            timerLabel.Text = "⚡ ACC `" .. readyAccName .. "` ĐÃ VỀ 0S! BẬT TRADE NGAY!"
-            sendSummaryWebhook(accList, false, readyAccName)
-            saveAccList({})
-            task.wait(3)
-        else
-            saveAccList({})
-            timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-            timerLabel.Text = "🔄 Hết 15 phút nghỉ! Bắt đầu đợt mới..."
-            task.wait(2)
+        -- KHI PHÁT HIỆN ACC VỀ 0S:
+        timerLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+        timerLabel.Text = "⚡ ACC `" .. readyAccName .. "` VỀ 0S! BẢNG STATUS + DELAY 1 PHÚT..."
+        
+        -- Gửi Bảng Status
+        sendSummaryWebhook(accList, false, readyAccName)
+
+        -- Delay đúng 1 phút (60 giây) để chờ Tool Termux đẩy acc lên Dòng 1
+        for delayTime = 60, 1, -1 do
+            timerLabel.Text = string.format("⏳ Đợi Termux đẩy Dòng 1: %ds | Acc: %s", delayTime, readyAccName)
+            task.wait(1)
         end
-    else
+
+        -- Hết 1 phút delay -> Kích hoạt 2 script Change Acc để bắt đầu đợt mới
         timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-        timerLabel.Text = string.format("✅ Đã lưu Acc %s (%d/%d)", playerName, currentTotal, MAX_ACC)
-        task.wait(3)
+        timerLabel.Text = "🚀 Bật Script Change Acc để đổi nick ngay!"
+        
+        triggerChangeAccScripts()
+        task.wait(2)
+        pcall(function() screenGui:Destroy() end)
+
+    else
+        -- CHƯA ĐỦ 15 ACC -> BẬT CHANGE ACC CHUYỂN NICK TIẾP
+        timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+        timerLabel.Text = string.format("✅ Đã lưu Acc %s (%d/%d) - Đổi acc tiếp...", playerName, currentTotal, MAX_ACC)
+        sendSummaryWebhook(accList, false, nil)
+        
+        task.wait(2)
+        triggerChangeAccScripts()
+        task.wait(1)
         pcall(function() screenGui:Destroy() end)
     end
 end)
