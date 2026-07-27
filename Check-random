@@ -3,7 +3,7 @@
 -- =======================================================
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
-local WAIT_HUB_TIME = 30                 -- Chờ 30s đầu cho Hub chạy tới NPC
+local WAIT_HUB_TIME = 35                 -- Chờ 30s đầu cho Hub chạy tới NPC
 local CHECK_SCAN_TIME = 5                -- Quét Beli từ 30s -> 35s
 local MIN_MONEY_SPENT = 300000           -- Mất >= 300k Beli mới tính là đã Random
 local MAX_ACC = 15                       -- Tối đa 15 acc
