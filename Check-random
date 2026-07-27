@@ -1,9 +1,9 @@
 -- =======================================================
--- SCRIPT CHECK RANDOM - LUÔN BẬT SCRIPT CHANGE ACC
+-- SCRIPT CHECK RANDOM - THÊM WEBHOOK THÔNG BÁO CHI TIẾT ACC
 -- =======================================================
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
-local START_DELAY = 35                   -- Chờ 35s cho Hub random xong
+local START_DELAY = 35                   -- Thời gian chờ tối đa 35s
 local MAX_ACC = 15                       -- Tối đa 15 acc
 local REST_TIME = 15 * 60                -- Nghỉ 15 phút (900s)
 local COOLDOWN_RANDOM = 2 * 60 * 60      -- Cooldown 2 tiếng
@@ -16,58 +16,7 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 -- -------------------------------------------------------
--- HÀM CHECK TRÁI QUỶ (Ở Ô BÊN DƯỚI HOẶC TRONG KHO STORED)
--- -------------------------------------------------------
-local function checkFruitInInventory()
-    local foundFruit = false
-
-    -- 1. Check ở các Ô phím tắt bên dưới (Backpack & Character)
-    pcall(function()
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then
-            for _, item in ipairs(backpack:GetChildren()) do
-                local itemName = string.lower(item.Name)
-                if string.find(itemName, "fruit") or string.find(itemName, "trái") then
-                    foundFruit = true
-                    return
-                end
-            end
-        end
-
-        local character = LocalPlayer.Character
-        if character then
-            for _, item in ipairs(character:GetChildren()) do
-                if item:IsA("Tool") then
-                    local itemName = string.lower(item.Name)
-                    if string.find(itemName, "fruit") or string.find(itemName, "trái") then
-                        foundFruit = true
-                        return
-                    end
-                end
-            end
-        end
-    end)
-
-    if foundFruit then return true end
-
-    -- 2. Check trong Kho Trái Cất (Stored Fruits Inventory của Blox Fruits)
-    pcall(function()
-        local getInventory = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
-        if type(getInventory) == "table" then
-            for _, item in ipairs(getInventory) do
-                if item.Type == "Blox Fruit" or string.find(string.lower(tostring(item.Name or "")), "fruit") then
-                    foundFruit = true
-                    return
-                end
-            end
-        end
-    end)
-
-    return foundFruit
-end
-
--- -------------------------------------------------------
--- GỬI DISCORD WEBHOOK TỔNG HỢP (DANH SÁCH 15 ACC)
+-- HÀM GỬI DISCORD WEBHOOK CHUNG
 -- -------------------------------------------------------
 local function sendDiscordWebhook(titleText, descriptionText, colorCode)
     task.spawn(function()
@@ -89,6 +38,64 @@ local function sendDiscordWebhook(titleText, descriptionText, colorCode)
     end)
 end
 
+-- -------------------------------------------------------
+-- HÀM CHECK TRÁI QUỶ (Ô PHÍM TẮT & KHO CẤT)
+-- -------------------------------------------------------
+local function checkFruitInInventory()
+    local foundFruit = false
+    local fruitNameFound = "Không xác định"
+
+    -- 1. Check ở Ô phím tắt bên dưới (Backpack & Character)
+    pcall(function()
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in ipairs(backpack:GetChildren()) do
+                local itemName = string.lower(item.Name)
+                if string.find(itemName, "fruit") or string.find(itemName, "trái") then
+                    foundFruit = true
+                    fruitNameFound = item.Name
+                    return
+                end
+            end
+        end
+
+        local character = LocalPlayer.Character
+        if character then
+            for _, item in ipairs(character:GetChildren()) do
+                if item:IsA("Tool") then
+                    local itemName = string.lower(item.Name)
+                    if string.find(itemName, "fruit") or string.find(itemName, "trái") then
+                        foundFruit = true
+                        fruitNameFound = item.Name
+                        return
+                    end
+                end
+            end
+        end
+    end)
+
+    if foundFruit then return true, fruitNameFound end
+
+    -- 2. Check trong Kho Trái Cất (Stored Fruits Inventory)
+    pcall(function()
+        local getInventory = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
+        if type(getInventory) == "table" then
+            for _, item in ipairs(getInventory) do
+                if item.Type == "Blox Fruit" or string.find(string.lower(tostring(item.Name or "")), "fruit") then
+                    foundFruit = true
+                    fruitNameFound = tostring(item.Name or "Đã cất vào kho")
+                    return
+                end
+            end
+        end
+    end)
+
+    return foundFruit, fruitNameFound
+end
+
+-- -------------------------------------------------------
+-- GỬI WEBHOOK DANH SÁCH BẢNG TỔNG HỢP 15 ACC
+-- -------------------------------------------------------
 local function sendSummaryWebhook(accList, isFull, readyAccName)
     local currentTime = os.time()
     local descriptionText = "📊 **DANH SÁCH ACC ĐÃ RANDOM XONG (" .. #accList .. "/" .. MAX_ACC .. ")**\n\n"
@@ -166,231 +173,58 @@ timerLabel.Parent = screenGui
 -- -------------------------------------------------------
 task.spawn(function()
 
-    -- 1. Đếm ngược 35s chờ Hub random
+    local hasFruit = false
+    local fruitName = ""
+
+    -- 1. LIÊN TỤC QUÉT TRÁI QUỶ MỖI GIÂY TRONG 35S
     for delayTime = START_DELAY, 1, -1 do
-        timerLabel.Text = "⏳ Đang chờ Random xong: " .. delayTime .. "s"
+        timerLabel.Text = "🔍 Đang liên tục quét Trái Quỷ: " .. delayTime .. "s"
+        
+        local found, name = checkFruitInInventory()
+        if found then
+            hasFruit = true
+            fruitName = name
+            break -- Ngắt vòng lặp đếm ngược ngay khi có trái
+        end
+
         task.wait(1)
     end
 
-    -- 2. LUÔN LUÔN KÍCH HOẠT 2 SCRIPT CHECK / CHANGE ACC PHỤ
+    -- 2. LUÔN BẬT 2 SCRIPT CHANGE ACC PHỤ
     task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/checkonline.lua'))() end) end)
     task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/check-info.lua'))() end) end)
 
-    -- 3. KIỂM TRA TRÁI QUỶ TRONG BALO HOẶC KHO
-    timerLabel.Text = "🔍 Đang kiểm tra Balo & Kho Trái..."
-    task.wait(1)
+    local playerName = LocalPlayer.Name
 
-    local hasFruit = checkFruitInInventory()
-
+    -- 3. NẾU KHÔNG CÓ TRÁI QUỶ -> BẮN WEBHOOK BÁO ĐỎ & BỎ QUA
     if not hasFruit then
-        -- KHÔNG CÓ TRÁI QUỶ -> CHỈ BÁO VÀ BỎ QUA KHÔNG LƯU DATA (ĐÃ BẬT 2 SCRIPT ĐỂ TỰ CHANGE ACC)
         timerLabel.TextColor3 = Color3.fromRGB(255, 69, 0)
-        timerLabel.Text = "❌ Không tìm thấy Trái Quỷ! Bỏ qua acc này..."
+        timerLabel.Text = "❌ Hết 35s - Không có Trái Quỷ! Bỏ qua..."
+        
+        -- Gửi Webhook báo Acc KHÔNG có trái
+        sendDiscordWebhook(
+            "❌ ACC CHƯA RANDOM / KHÔNG CÓ TRÁI",
+            "👤 **Account:** `" .. playerName .. "`\n📌 **Trạng thái:** Không tìm thấy Trái Quỷ trong Balo hoặc Kho cất!\n⏩ **Hành động:** Bỏ qua acc, đang chuyển acc tiếp theo...",
+            16711680 -- Màu đỏ
+        )
+
         task.wait(3)
         pcall(function() screenGui:Destroy() end)
         return
     end
 
-    -- 4. ĐÃ CÓ TRÁI QUỶ -> LƯU TÊN ACC VÀ BẮN WEBHOOK TỔNG HỢP
+    -- 4. NẾU CÓ TRÁI QUỶ -> BẮN WEBHOOK BÁO XANH & LƯU WORKSPACE
     timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
     timerLabel.Text = "✅ Phát hiện Trái Quỷ! Đã ghi nhận Acc."
 
-    local accList = loadAccList()
-    local playerName = LocalPlayer.Name
-
-    local exists = false
-    for _, acc in ipairs(accList) do
-        if acc.name == playerName then exists = true break end
-    end
-
-    if not exists then
-        table.insert(accList, { name = playerName, timestamp = os.time() })
-        saveAccList(accList)
-    end
-
-    local currentTotal = #accList
-    sendSummaryWebhook(accList, currentTotal >= MAX_ACC, nil)
-
-    -- ĐỦ 15 ACC -> VÀO CHẾ ĐỘ NGHỈ 15 PHÚT
-    if currentTotal >= MAX_ACC then
-        timerLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-        local triggeredEarly = false
-        local readyAccName = ""
-        local webhookTimer = 0
-
-        for restTime = REST_TIME, 1, -1 do
-            local currentTime = os.time()
-            for _, acc in ipairs(accList) do
-                if (currentTime - acc.timestamp) >= COOLDOWN_RANDOM then
-                    triggeredEarly = true
-                    readyAccName = acc.name
-                    break
-                end
-            end
-
-            if triggeredEarly then break end
-
-            webhookTimer = webhookTimer + 1
-            if webhookTimer >= WEBHOOK_INTERVAL then
-                sendSummaryWebhook(accList, true, nil)
-                webhookTimer = 0
-            end
-
-            local mins = math.floor(restTime / 60)
-            local secs = restTime % 60
-            timerLabel.Text = string.format("🛑 Đủ 15 Acc! Nghỉ %02d:%02d (Webhook 30s)", mins, secs)
-            task.wait(1)
-        end
-
-        if triggeredEarly then
-            timerLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
-            timerLabel.Text = "⚡ ACC `" .. readyAccName .. "` ĐÃ VỀ 0S! BẬT TRADE NGAY!"
-            sendSummaryWebhook(accList, false, readyAccName)
-            saveAccList({})
-            task.wait(3)
-        else
-            saveAccList({})
-            timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-            timerLabel.Text = "🔄 Hết 15 phút nghỉ! Bắt đầu đợt mới..."
-            task.wait(2)
-        end
-    else
-        timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-        timerLabel.Text = string.format("✅ Đã lưu Acc %s (%d/%d)", playerName, currentTotal, MAX_ACC)
-        task.wait(3)
-        pcall(function() screenGui:Destroy() end)
-    end
-end)
-    end
-    return oldRequest(options)
-end)
-
--- -------------------------------------------------------
--- GỬI DISCORD WEBHOOK TỔNG HỢP (DANH SÁCH 15 ACC)
--- -------------------------------------------------------
-local function sendDiscordWebhook(titleText, descriptionText, colorCode)
-    task.spawn(function()
-        local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
-        local embedData = {
-            ["title"] = titleText,
-            ["description"] = descriptionText,
-            ["color"] = colorCode or 65280,
-            ["footer"] = { ["text"] = "Smart Cooldown & Trade Manager | Max 15 Acc" },
-            ["timestamp"] = DateTime.now():ToIsoDate()
-        }
-        local payload = HttpService:JSONEncode({ ["username"] = "Random Manager", ["embeds"] = { embedData } })
-
-        if requestFunc then
-            requestFunc({ Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload })
-        else
-            pcall(function() HttpService:PostAsync(WEBHOOK_URL, payload, Enum.HttpContentType.ApplicationJson) end)
-        end
-    end)
-end
-
-local function sendSummaryWebhook(accList, isFull, readyAccName)
-    local currentTime = os.time()
-    local descriptionText = "📊 **DANH SÁCH ACC ĐÃ RANDOM XONG (" .. #accList .. "/" .. MAX_ACC .. ")**\n\n"
-    
-    for index, item in ipairs(accList) do
-        local elapsedTime = currentTime - item.timestamp
-        local remainingCooldown = math.max(0, COOLDOWN_RANDOM - elapsedTime)
-        
-        local cdMins = math.floor(remainingCooldown / 60)
-        local cdSecs = remainingCooldown % 60
-        local cdText = (remainingCooldown > 0) and string.format("%d phút %ds", cdMins, cdSecs) or "⚡ READY TO TRADE (0s)!"
-
-        descriptionText = descriptionText .. string.format("`%02d.` **%s** | Cooldown: `%s`\n", index, item.name, cdText)
-    end
-
-    local titleText = "🔄 CẬP NHẬT TÀI KHOẢN RANDOM MỚI"
-    local colorCode = 65280
-
-    if readyAccName then
-        titleText = "🚀 PHÁT HIỆN ACC VỀ 0S - KÍCH HOẠT TRADE NGAY!"
-        descriptionText = descriptionText .. "\n🔥 **Acc `" .. readyAccName .. "` đã đủ 2 tiếng! Ngắt 15 phút để Trade.**"
-        colorCode = 16766720
-    elseif isFull then
-        titleText = "🎉 HOÀN THÀNH BẢNG 15 ACC RANDOM"
-        descriptionText = descriptionText .. "\n🛑 **Đã gom đủ 15 Acc! Đang chờ 15 phút.**"
-        colorCode = 16711680
-    end
-
-    sendDiscordWebhook(titleText, descriptionText, colorCode)
-end
-
--- -------------------------------------------------------
--- QUẢN LÝ WORKSPACE (TỰ DỌN DATA CŨ > 2 TIẾNG)
--- -------------------------------------------------------
-local function loadAccList()
-    if isfile and isfile(FILE_NAME) then
-        local success, data = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
-        if success and type(data) == "table" then
-            local validList = {}
-            local currentTime = os.time()
-            for _, item in ipairs(data) do
-                if (currentTime - item.timestamp) < COOLDOWN_RANDOM then
-                    table.insert(validList, item)
-                end
-            end
-            return validList
-        end
-    end
-    return {}
-end
-
-local function saveAccList(data)
-    if writefile then writefile(FILE_NAME, HttpService:JSONEncode(data)) end
-end
-
--- -------------------------------------------------------
--- UI TẠO BẢNG THÔNG BÁO
--- -------------------------------------------------------
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "RandomTrackerUI"
-pcall(function() screenGui.Parent = CoreGui end)
-if not screenGui.Parent then screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-
-local timerLabel = Instance.new("TextLabel")
-timerLabel.Size = UDim2.new(0, 320, 0, 50)
-timerLabel.Position = UDim2.new(0.5, -160, 0.05, 0)
-timerLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-timerLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
-timerLabel.TextSize = 13
-timerLabel.Font = Enum.Font.SourceSansBold
-timerLabel.Parent = screenGui
-
--- -------------------------------------------------------
--- LUỒNG CHẠY CHÍNH
--- -------------------------------------------------------
-task.spawn(function()
-
-    -- Đếm ngược 35s chờ Hub phát tín hiệu Webhook Random xong
-    for delayTime = START_DELAY, 1, -1 do
-        if isRandomDone then break end -- Nếu báo xong sớm thì nhảy thẳng ra luôn
-        timerLabel.Text = "⏳ Đang chờ Hub Random xong: " .. delayTime .. "s"
-        task.wait(1)
-    end
-
-    -- KIỂM TRA: NẾU HẾT 35S MÀ CHƯA CÓ BÁO WEBHOOK -> BỎ QUA
-    if not isRandomDone then
-        timerLabel.TextColor3 = Color3.fromRGB(255, 69, 0)
-        timerLabel.Text = "❌ Chưa Random xong / Không có thông báo! Bỏ qua..."
-        task.wait(3)
-        pcall(function() screenGui:Destroy() end)
-        return
-    end
-
-    -- KHI ĐÃ RANDOM XONG THÀNH CÔNG -> GHI NHẬN & CHẠY 2 SCRIPT CHECK PHỤ
-    timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-    timerLabel.Text = "✅ Đã xác nhận Random xong!"
-
-    task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/checkonline.lua'))() end) end)
-    task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/check-info.lua'))() end) end)
+    -- Gửi Webhook báo Acc CÓ trái
+    sendDiscordWebhook(
+        "✅ XÁC NHẬN ACC ĐÃ RANDOM TRÁI QUỶ",
+        "👤 **Account:** `" .. playerName .. "`\n🍎 **Trái tìm thấy:** `" .. fruitName .. "`\n🎉 **Trạng thái:** Đã lưu vào danh sách chờ Cooldown!",
+        65280 -- Màu xanh lá
+    )
 
     local accList = loadAccList()
-    local playerName = LocalPlayer.Name
-
     local exists = false
     for _, acc in ipairs(accList) do
         if acc.name == playerName then exists = true break end
