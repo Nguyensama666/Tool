@@ -1,10 +1,10 @@
 -- =======================================================
--- SCRIPT CHECK RANDOM - ĐỢI 30S MỚI CHECK BELI LIÊN TỤC
+-- SCRIPT CHECK RANDOM - HIỂN THỊ STATUS BELI VÀ WEBHOOK
 -- =======================================================
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
 local WAIT_HUB_TIME = 30                 -- Chờ 30s đầu cho Hub chạy tới NPC
-local CHECK_SCAN_TIME = 5                -- Quét liên tục trong 5s tiếp theo (đến mốc 35s)
+local CHECK_SCAN_TIME = 5                -- Quét Beli từ 30s -> 35s
 local MIN_MONEY_SPENT = 300000           -- Mất >= 300k Beli mới tính là đã Random
 local MAX_ACC = 15                       -- Tối đa 15 acc
 local REST_TIME = 15 * 60                -- Nghỉ 15 phút (900s)
@@ -31,6 +31,48 @@ local function getPlayerBeli()
         end
     end)
     return beli
+end
+
+-- -------------------------------------------------------
+-- HÀM LẤY TÊN TRÁI QUỶ TRONG TÚI/KHO (NẾU MẤT TIỀN)
+-- -------------------------------------------------------
+local function getFruitName()
+    local fruitNameFound = "Trái Quỷ Mới"
+    pcall(function()
+        -- 1. Check Backpack & Character
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in ipairs(backpack:GetChildren()) do
+                local itemName = string.lower(item.Name)
+                if string.find(itemName, "fruit") or string.find(itemName, "trái") then
+                    fruitNameFound = item.Name
+                    return
+                end
+            end
+        end
+
+        local character = LocalPlayer.Character
+        if character then
+            for _, item in ipairs(character:GetChildren()) do
+                if item:IsA("Tool") and (string.find(string.lower(item.Name), "fruit") or string.find(string.lower(item.Name), "trái")) then
+                    fruitNameFound = item.Name
+                    return
+                end
+            end
+        end
+
+        -- 2. Check Stored Inventory
+        local getInventory = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
+        if type(getInventory) == "table" then
+            for _, item in ipairs(getInventory) do
+                if item.Type == "Blox Fruit" or string.find(string.lower(tostring(item.Name or "")), "fruit") then
+                    fruitNameFound = tostring(item.Name or "Đã cất vào kho")
+                    return
+                end
+            end
+        end
+    end)
+    return fruitNameFound
 end
 
 -- -------------------------------------------------------
@@ -112,7 +154,7 @@ local function saveAccList(data)
 end
 
 -- -------------------------------------------------------
--- UI HIỂN THỊ
+-- UI HIỂN THỊ STATUS
 -- -------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "RandomTrackerUI"
@@ -120,8 +162,8 @@ pcall(function() screenGui.Parent = CoreGui end)
 if not screenGui.Parent then screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 local timerLabel = Instance.new("TextLabel")
-timerLabel.Size = UDim2.new(0, 320, 0, 50)
-timerLabel.Position = UDim2.new(0.5, -160, 0.05, 0)
+timerLabel.Size = UDim2.new(0, 360, 0, 50)
+timerLabel.Position = UDim2.new(0.5, -180, 0.05, 0)
 timerLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 timerLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
 timerLabel.TextSize = 13
@@ -133,31 +175,28 @@ timerLabel.Parent = screenGui
 -- -------------------------------------------------------
 task.spawn(function()
 
-    -- 1. LẤY SỐ TIỀN BELI BAN ĐẦU KHI VỪA VÀO GAME
+    -- 1. LẤY SỐ TIỀN BELI BAN ĐẦU VÀ HIỂN THỊ STATUS
     local initialBeli = getPlayerBeli()
     local hasRandomed = false
     local spentBeli = 0
 
-    -- 2. ĐỢI BẢN NỀN 30 GIÂY ĐẦU CHO HUB CHẠY TỚI NPC
+    -- 2. ĐỢI 30S ĐẦU TIÊN (HIỂN THỊ SỐ BELI BAN ĐẦU TRÊN STATUS)
     for waitTime = WAIT_HUB_TIME, 1, -1 do
-        timerLabel.Text = "⏳ Chờ Hub chạy tới NPC: " .. waitTime .. "s"
+        timerLabel.Text = string.format("⏳ Chờ Hub Random: %ds | Beli ban đầu: $%s", waitTime, string.format("%d", initialBeli))
         task.wait(1)
     end
 
-    -- 3. TỪ GIÂY THỨ 30 -> 35: BẮT ĐẦU QUÉT BELI LIÊN TỤC MỖI GIÂY
+    -- 3. TỪ GIÂY 30 -> 35: QUÉT SỐ BELI LIÊN TỤC
     for scanTime = CHECK_SCAN_TIME, 1, -1 do
-        timerLabel.Text = "🔍 Đang kiểm tra Beli (Cần mất >= 300k): " .. scanTime .. "s"
-        
         local currentBeli = getPlayerBeli()
         if initialBeli > 0 then
             spentBeli = initialBeli - currentBeli
-            -- Nếu phát hiện mất từ 300,000 Beli trở lên -> Đã Random thành công!
             if spentBeli >= MIN_MONEY_SPENT then
                 hasRandomed = true
                 break
             end
         end
-
+        timerLabel.Text = string.format("🔍 Check Beli: %ds | Beli hiện tại: $%s", scanTime, string.format("%d", currentBeli))
         task.wait(1)
     end
 
@@ -167,14 +206,14 @@ task.spawn(function()
 
     local playerName = LocalPlayer.Name
 
-    -- 5. NẾU KHÔNG MẤT ĐỦ TIỀN (CHƯA RANDOM / ĐANG COOLDOWN) -> BỎ QUA
+    -- 5. NẾU KHÔNG TRỪ ĐỦ BELI (CHƯA RANDOM / COOLDOWN) -> GỬI WEBHOOK ĐỎ
     if not hasRandomed then
         timerLabel.TextColor3 = Color3.fromRGB(255, 69, 0)
         timerLabel.Text = "❌ Không trừ Beli (Chưa Random/Cooldown)! Bỏ qua..."
         
         sendDiscordWebhook(
             "❌ ACC CHƯA RANDOM / ĐANG COOLDOWN",
-            "👤 **Account:** `" .. playerName .. "`\n📌 **Trạng thái:** Tiền Beli chỉ bị trừ `" .. string.format("%d", math.max(0, spentBeli)) .. " Beli` (Không đủ >= 300,000 Beli)!\n⏩ **Hành động:** Bỏ qua acc, đang chuyển acc tiếp theo...",
+            "👤 **Account:** `" .. playerName .. "`\n💰 **Beli ban đầu:** `$" .. string.format("%d", initialBeli) .. "`\n📌 **Trạng thái:** Beli chỉ bị trừ `$" .. string.format("%d", math.max(0, spentBeli)) .. "` (Không đủ >= 300k)!\n⏩ **Hành động:** Bỏ qua acc, đang chuyển acc tiếp theo...",
             16711680 -- Màu đỏ
         )
 
@@ -183,13 +222,14 @@ task.spawn(function()
         return
     end
 
-    -- 6. NẾU MẤT TIỀN ĐỦ >= 300K -> XÁC NHẬN RANDOM THÀNH CÔNG
+    -- 6. NẾU TRỪ ĐỦ BELI -> GỬI WEBHOOK XANH & LƯU WORKSPACE
+    local fruitName = getFruitName()
     timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-    timerLabel.Text = "✅ Đã mất " .. string.format("%d", spentBeli) .. " Beli! Đã ghi nhận Acc."
+    timerLabel.Text = "✅ Đã mất $" .. string.format("%d", spentBeli) .. " Beli! Đã ghi nhận Acc."
 
     sendDiscordWebhook(
-        "✅ XÁC NHẬN ACC ĐÃ RANDOM THÀNH CÔNG",
-        "👤 **Account:** `" .. playerName .. "`\n💸 **Tiền đã mất:** `" .. string.format("%d", spentBeli) .. " Beli`\n🎉 **Trạng thái:** Đã xác thực Random và lưu vào danh sách Cooldown!",
+        "✅ XÁC NHẬN ACC ĐÃ RANDOM TRÁI QUỶ",
+        "👤 **Account:** `" .. playerName .. "`\n💸 **Tiền đã mất:** `$" .. string.format("%d", spentBeli) .. " Beli`\n🍎 **Trái tìm thấy:** `" .. fruitName .. "`\n🎉 **Trạng thái:** Đã lưu vào danh sách chờ Cooldown!",
         65280 -- Màu xanh lá
     )
 
