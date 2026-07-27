@@ -1,39 +1,53 @@
-import json, os, time, requests
-from datetime import datetime
+import json
+import os
+import time
+import requests
+from datetime import datetime, timezone
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1531349744289321152/_gNUas_2Rn6oOJcJV-BpAjXyauPccBv6XJWTa8Cx-gVPbGfWR56bApJg4mUJw1J9IbS2"
-
-# Đường dẫn ĐÚNG Y HỆT TRONG ẢNH
 WORKSPACE_PATH = "/storage/emulated/0/Delta/Workspace/RandomAccList.json"  
 COOKIE_FILE = "/storage/emulated/0/Download/Shouko/switched/cookie.txt"
-
 COOLDOWN_TIME = 7200
-INTERVAL = 10
+INTERVAL = 10  # Cập nhật mỗi 10 giây
 
 def prioritize_ready_acc():
-    if not (os.path.exists(WORKSPACE_PATH) and os.path.exists(COOKIE_FILE)): return
+    if not (os.path.exists(WORKSPACE_PATH) and os.path.exists(COOKIE_FILE)): 
+        return
     try:
-        with open(WORKSPACE_PATH, "r", encoding="utf-8") as f: acc_list = json.load(f)
-        if not acc_list: return
+        with open(WORKSPACE_PATH, "r", encoding="utf-8") as f: 
+            acc_list = json.load(f)
+        if not acc_list: 
+            return
+            
         cur_time = time.time()
         target_acc_name = next((i.get("name") for i in acc_list if (cur_time - i.get("timestamp", cur_time)) >= COOLDOWN_TIME and i.get("name")), None)
         
         if target_acc_name:
-            with open(COOKIE_FILE, "r", encoding="utf-8") as f: lines = [l.strip() for l in f if l.strip()]
+            with open(COOKIE_FILE, "r", encoding="utf-8") as f: 
+                lines = [l.strip() for l in f if l.strip()]
             for i, line in enumerate(lines):
                 if line.split(":")[0].strip().lower() == target_acc_name.lower():
                     if i > 0:
                         lines.insert(0, lines.pop(i))
-                        with open(COOKIE_FILE, "w", encoding="utf-8") as f: f.write("\n".join(lines) + "\n")
+                        with open(COOKIE_FILE, "w", encoding="utf-8") as f: 
+                            f.write("\n".join(lines) + "\n")
+                        print(f"⚡ [Termux] Đã đẩy '{target_acc_name}' lên Dòng 1!")
                     break
-    except: pass
+    except Exception as e:
+        print(f"⚠️ Lỗi xử lý Cookie: {e}")
+
+print("🚀 [Termux System] Đang chạy Tool Auto Rotation (Cập nhật 10s)...")
 
 while True:
     prioritize_ready_acc()
     if os.path.exists(WORKSPACE_PATH):
         try:
-            with open(WORKSPACE_PATH, "r", encoding="utf-8") as f: acc_list = json.load(f)
-            cur_time, acc_details, ready_c, cd_c = time.time(), "", 0, 0
+            with open(WORKSPACE_PATH, "r", encoding="utf-8") as f: 
+                acc_list = json.load(f)
+            
+            cur_time = time.time()
+            acc_details, ready_c, cd_c = "", 0, 0
+            
             for i, item in enumerate(acc_list or [], 1):
                 rem = max(0, COOLDOWN_TIME - (cur_time - item.get("timestamp", cur_time)))
                 acc_name = item.get("name", "Unknown")
@@ -42,7 +56,9 @@ while True:
                     acc_details += f"`{i:02d}.` **{acc_name}** ➔ ⚡ **READY TO TRADE**\n"
                 else:
                     cd_c += 1
-                    acc_details += f"`{i:02d}.` **{acc_name}** ➔ ⏳ `{int(rem//60):02d}m {int(rem%60):02d}s`\n"
+                    mins = int(rem // 60)
+                    secs = int(rem % 60)
+                    acc_details += f"`{i:02d}.` **{acc_name}** ➔ ⏳ `{mins:02d}m {secs:02d}s`\n"
             
             embed = {
                 "title": "📊 BẢNG QUẢN LÝ COOLDOWN TÀI KHOẢN (REAL-TIME)",
@@ -52,8 +68,18 @@ while True:
                     {"name": "📜 DANH SÁCH CHI TIẾT", "value": acc_details or "*(Chưa có acc trong danh sách)*", "inline": False}
                 ],
                 "footer": {"text": "Termux Live Manager • Cập nhật mỗi 10s"},
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
-            requests.post(WEBHOOK_URL, json={"username": "Termux Manager Pro", "embeds": [embed]})
-        except: pass
+            
+            res = requests.post(WEBHOOK_URL, json={"username": "Termux Manager Pro", "embeds": [embed]})
+            if res.status_code in [200, 204]:
+                print(f"✅ [{time.strftime('%H:%M:%S')}] Đã cập nhật Webhook Live lên Discord!")
+            else:
+                print(f"❌ Discord từ chối ({res.status_code}): {res.text}")
+                
+        except Exception as e:
+            print(f"⚠️ Lỗi gửi Webhook: {e}")
+    else:
+        print(f"❌ Không thấy file tại: {WORKSPACE_PATH}")
+        
     time.sleep(INTERVAL)
