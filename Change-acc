@@ -1,0 +1,106 @@
+import json
+import os
+import time
+import requests
+from datetime import datetime
+
+# =======================================================
+# CẤU HÌNH ĐƯỜNG DẪN & WEBHOOK
+# =======================================================
+WEBHOOK_URL = "https://discord.com/api/webhooks/1531349744289321152/_gNUas_2Rn6oOJcJV-BpAjXyauPccBv6XJWTa8Cx-gVPbGfWR56bApJg4mUJw1J9IbS2"
+WORKSPACE_PATH = "/storage/emulated/0/Download/Shouko/switched/Workspace/RandomAccList.json"  
+COOKIE_FILE = "/storage/emulated/0/Download/Shouko/switched/cookie.txt"
+COOLDOWN_TIME = 7200  # 2 tiếng Cooldown
+INTERVAL = 10         # Cập nhật Webhook mỗi 10 GIÂY
+
+# =======================================================
+# 1. HÀM BỐC ACC VỀ 0S LÊN DÒNG 1
+# =======================================================
+def prioritize_ready_acc():
+    if not os.path.exists(WORKSPACE_PATH) or not os.path.exists(COOKIE_FILE):
+        return
+
+    try:
+        with open(WORKSPACE_PATH, "r", encoding="utf-8") as f:
+            acc_list = json.load(f)
+
+        if not acc_list:
+            return
+
+        target_acc_name = acc_list[0].get("name")
+        if not target_acc_name:
+            return
+
+        with open(COOKIE_FILE, "r", encoding="utf-8") as f:
+            cookie_lines = [line.strip() for line in f if line.strip()]
+
+        target_line = None
+        target_index = -1
+
+        for i, line in enumerate(cookie_lines):
+            username = line.split(":")[0].strip()
+            if username.lower() == target_acc_name.lower():
+                target_line = line
+                target_index = i
+                break
+
+        if target_line and target_index > 0:
+            cookie_lines.pop(target_index)
+            cookie_lines.insert(0, target_line)
+
+            with open(COOKIE_FILE, "w", encoding="utf-8") as f:
+                f.write("\n".join(cookie_lines) + "\n")
+
+            print(f"⚡ [Termux] Đã đẩy dòng đầu tiên của '{target_acc_name}' lên DÒNG 1!")
+    except Exception as e:
+        print(f"⚠️ [Cookie Error]: {e}")
+
+# =======================================================
+# 2. LUỒNG CHẠY LIVE DASHBOARD 10S/LẦN
+# =======================================================
+def run_live_dashboard():
+    print("🚀 [Termux System] Đang khởi chạy Tool Quản Lý Auto Rotation...")
+    
+    while True:
+        # Tự động check & đẩy acc chín lên Dòng 1 trước
+        prioritize_ready_acc()
+
+        if os.path.exists(WORKSPACE_PATH):
+            try:
+                with open(WORKSPACE_PATH, "r", encoding="utf-8") as f:
+                    acc_list = json.load(f)
+
+                cur_time = time.time()
+                acc_details, ready_c, cd_c = "", 0, 0
+
+                for i, item in enumerate(acc_list or [], 1):
+                    rem = max(0, COOLDOWN_TIME - (cur_time - item.get("timestamp", cur_time)))
+                    if rem <= 0:
+                        ready_c += 1
+                        acc_details += f"`{i:02d}.` **{item.get('name')}** ➔ ⚡ **READY TO TRADE**\n"
+                    else:
+                        cd_c += 1
+                        mins = int(rem // 60)
+                        secs = int(rem % 60)
+                        acc_details += f"`{i:02d}.` **{item.get('name')}** ➔ ⏳ `{mins:02d}m {secs:02d}s`\n"
+
+                embed = {
+                    "title": "📊 BẢNG QUẢN LÝ COOLDOWN TÀI KHOẢN (REAL-TIME)",
+                    "color": 3447003,
+                    "fields": [
+                        {"name": "📈 TỔNG QUAN DÀN ACC", "value": f"🔹 **Theo dõi:** `{len(acc_list or [])} Acc`\n⚡ **Sẵn sàng:** `{ready_c} Acc`\n⏳ **Cooldown:** `{cd_c} Acc`", "inline": False},
+                        {"name": "📜 DANH SÁCH CHI TIẾT", "value": acc_details or "*(Chưa có acc trong danh sách)*", "inline": False}
+                    ],
+                    "footer": {"text": "Termux Live Manager • Cập nhật mỗi 10s"},
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+                requests.post(WEBHOOK_URL, json={"username": "Termux Manager Pro", "embeds": [embed]})
+                print(f"✅ [{time.strftime('%H:%M:%S')}] Đã cập nhật Webhook Live (10s)!")
+
+            except Exception as e:
+                print(f"⚠️ [Webhook Error]: {e}")
+
+        time.sleep(INTERVAL)
+
+if __name__ == "__main__":
+    run_live_dashboard()
