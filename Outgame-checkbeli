@@ -1,0 +1,115 @@
+-- =======================================================
+-- SCRIPT AUTO SHUTDOWN SAU 90S + CHECK BELI (< 500K TREO LẠI)
+-- =======================================================
+
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1262811878539923557/ewj9wKs8KbEk4R58GaCFKbZwow84BuyFrzVpVTd7sCEWobOevB6UW3hHahZUgxhQZUhl"
+local TOTAL_TIME = 90
+local MIN_BELI = 500000 -- Mốc 500k Beli
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- Gửi Webhook Discord
+local function sendDiscordWebhook(title, desc, color)
+    task.spawn(function()
+        pcall(function()
+            local embedData = {
+                ["title"] = title, ["description"] = desc, ["color"] = color or 65280,
+                ["footer"] = { ["text"] = "Auto Shutdown & Beli Monitor" },
+                ["timestamp"] = DateTime.now():ToIsoDate()
+            }
+            local payload = HttpService:JSONEncode({["username"] = "Bot", ["embeds"] = { embedData }})
+            local httpRequest = (syn and syn.request) or (http and http.request) or http_request or request
+            if httpRequest then
+                httpRequest({Url = WEBHOOK_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+            else
+                HttpService:PostAsync(WEBHOOK_URL, payload, Enum.HttpContentType.ApplicationJson)
+            end
+        end)
+    end)
+end
+
+-- Hàm định dạng số Beli cho dễ nhìn (Ví dụ: 500000 -> 500,000)
+local function formatNumber(number)
+    local i, j, minus, int, fraction = tostring(number):find('^(-?)(%d+)(%.?%d*)$')
+    return minus .. int:reverse():gsub('(%d%d%d)', '%1,'):reverse():gsub('^,', '') .. fraction
+end
+
+-- Hàm lấy số dư Beli của acc
+local function getPlayerBeli()
+    local success, beli = pcall(function()
+        return LocalPlayer.Data.Beli.Value
+    end)
+    if success and type(beli) == "number" then return beli end
+
+    local success2, beli2 = pcall(function()
+        return LocalPlayer.leaderstats.Beli.Value
+    end)
+    if success2 and type(beli2) == "number" then return beli2 end
+
+    return 0
+end
+
+-- Tạo UI đếm ngược / Trạng thái
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TimerUI"
+pcall(function() screenGui.Parent = CoreGui end)
+if not screenGui.Parent then screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local timerLabel = Instance.new("TextLabel")
+timerLabel.Size = UDim2.new(0, 260, 0, 40)
+timerLabel.Position = UDim2.new(0.5, -130, 0.05, 0)
+timerLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
+timerLabel.TextSize = 15
+timerLabel.Font = Enum.Font.SourceSansBold
+timerLabel.Parent = screenGui
+
+-- BẮT ĐẦU LUỒNG KIỂM TRA
+task.spawn(function()
+    timerLabel.Text = "⏳ Đang kiểm tra Beli..."
+    task.wait(3) -- Chờ 3s để nạp dữ liệu Beli nhân vật
+
+    local currentBeli = getPlayerBeli()
+    local formattedBeli = formatNumber(currentBeli)
+
+    -- KIỂM TRA ĐIỀU KIỆN BELI
+    if currentBeli < MIN_BELI then
+        -- TRƯỜNG HỢP: < 500K BELI -> KHÔNG THOÁT, ĐỂ ĐÓ TREO
+        timerLabel.TextColor3 = Color3.fromRGB(255, 165, 0) -- Màu cam
+        timerLabel.Text = "⚠️ Beli < 500k (" .. formattedBeli .. ") - Treo Game!"
+        
+        sendDiscordWebhook(
+            "⚠️ Beli ít hơn 500k - Giữ game treo", 
+            "**Tài khoản:** `" .. LocalPlayer.Name .. "`\n**Số Beli hiện tại:** `" .. formattedBeli .. " Beli`\n👉 **Trạng thái:** Dưới 500k Beli, giữ nguyên game không Shutdown!", 
+            16744192 -- Màu cam
+        )
+    else
+        -- TRƯỜNG HỢP: >= 500K BELI -> ĐẾM NGƯỢC 90S RỒI SHUTDOWN
+        sendDiscordWebhook(
+            "✅ Đủ Beli - Đang đếm 90s Shutdown", 
+            "**Tài khoản:** `" .. LocalPlayer.Name .. "`\n**Số Beli hiện tại:** `" .. formattedBeli .. " Beli` (>= 500k)\n👉 Bắt đầu đếm ngược 90s để tắt game.", 
+            65280 -- Màu xanh lá
+        )
+
+        for timeLeft = TOTAL_TIME, 1, -1 do
+            timerLabel.Text = "⏳ Thoát game sau: " .. timeLeft .. "s (" .. formattedBeli .. " Beli)"
+            task.wait(1)
+        end
+
+        timerLabel.Text = "🔄 Đang đóng ứng dụng..."
+        sendDiscordWebhook(
+            "🔄 Đã xong 90s", 
+            "**Tài khoản:** `" .. LocalPlayer.Name .. "`\n**Beli:** `" .. formattedBeli .. "`\nĐang tiến hành đóng game.", 
+            16711680 -- Màu đỏ
+        )
+        task.wait(1)
+
+        -- ĐÓNG GAME NGAY LẬP TỨC
+        pcall(function()
+            game:Shutdown()
+        end)
+    end
+end)
