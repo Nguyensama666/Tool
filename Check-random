@@ -1,9 +1,11 @@
 -- =======================================================
--- SCRIPT CHECK RANDOM - THÊM WEBHOOK THÔNG BÁO CHI TIẾT ACC
+-- SCRIPT CHECK RANDOM - ĐỢI 30S MỚI CHECK BELI LIÊN TỤC
 -- =======================================================
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
-local START_DELAY = 35                   -- Thời gian chờ tối đa 35s
+local WAIT_HUB_TIME = 30                 -- Chờ 30s đầu cho Hub chạy tới NPC
+local CHECK_SCAN_TIME = 5                -- Quét liên tục trong 5s tiếp theo (đến mốc 35s)
+local MIN_MONEY_SPENT = 300000           -- Mất >= 300k Beli mới tính là đã Random
 local MAX_ACC = 15                       -- Tối đa 15 acc
 local REST_TIME = 15 * 60                -- Nghỉ 15 phút (900s)
 local COOLDOWN_RANDOM = 2 * 60 * 60      -- Cooldown 2 tiếng
@@ -14,6 +16,22 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
+
+-- -------------------------------------------------------
+-- HÀM LẤY SỐ DƯ BELI HIỆN TẠI CỦA ACC
+-- -------------------------------------------------------
+local function getPlayerBeli()
+    local beli = 0
+    pcall(function()
+        local dataFolder = LocalPlayer:FindFirstChild("Data")
+        if dataFolder and dataFolder:FindFirstChild("Beli") then
+            beli = dataFolder.Beli.Value
+        elseif LocalPlayer:FindFirstChild("leaderstats") and LocalPlayer.leaderstats:FindFirstChild("Beli") then
+            beli = LocalPlayer.leaderstats.Beli.Value
+        end
+    end)
+    return beli
+end
 
 -- -------------------------------------------------------
 -- HÀM GỬI DISCORD WEBHOOK CHUNG
@@ -38,64 +56,6 @@ local function sendDiscordWebhook(titleText, descriptionText, colorCode)
     end)
 end
 
--- -------------------------------------------------------
--- HÀM CHECK TRÁI QUỶ (Ô PHÍM TẮT & KHO CẤT)
--- -------------------------------------------------------
-local function checkFruitInInventory()
-    local foundFruit = false
-    local fruitNameFound = "Không xác định"
-
-    -- 1. Check ở Ô phím tắt bên dưới (Backpack & Character)
-    pcall(function()
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then
-            for _, item in ipairs(backpack:GetChildren()) do
-                local itemName = string.lower(item.Name)
-                if string.find(itemName, "fruit") or string.find(itemName, "trái") then
-                    foundFruit = true
-                    fruitNameFound = item.Name
-                    return
-                end
-            end
-        end
-
-        local character = LocalPlayer.Character
-        if character then
-            for _, item in ipairs(character:GetChildren()) do
-                if item:IsA("Tool") then
-                    local itemName = string.lower(item.Name)
-                    if string.find(itemName, "fruit") or string.find(itemName, "trái") then
-                        foundFruit = true
-                        fruitNameFound = item.Name
-                        return
-                    end
-                end
-            end
-        end
-    end)
-
-    if foundFruit then return true, fruitNameFound end
-
-    -- 2. Check trong Kho Trái Cất (Stored Fruits Inventory)
-    pcall(function()
-        local getInventory = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
-        if type(getInventory) == "table" then
-            for _, item in ipairs(getInventory) do
-                if item.Type == "Blox Fruit" or string.find(string.lower(tostring(item.Name or "")), "fruit") then
-                    foundFruit = true
-                    fruitNameFound = tostring(item.Name or "Đã cất vào kho")
-                    return
-                end
-            end
-        end
-    end)
-
-    return foundFruit, fruitNameFound
-end
-
--- -------------------------------------------------------
--- GỬI WEBHOOK DANH SÁCH BẢNG TỔNG HỢP 15 ACC
--- -------------------------------------------------------
 local function sendSummaryWebhook(accList, isFull, readyAccName)
     local currentTime = os.time()
     local descriptionText = "📊 **DANH SÁCH ACC ĐÃ RANDOM XONG (" .. #accList .. "/" .. MAX_ACC .. ")**\n\n"
@@ -173,38 +133,48 @@ timerLabel.Parent = screenGui
 -- -------------------------------------------------------
 task.spawn(function()
 
-    local hasFruit = false
-    local fruitName = ""
+    -- 1. LẤY SỐ TIỀN BELI BAN ĐẦU KHI VỪA VÀO GAME
+    local initialBeli = getPlayerBeli()
+    local hasRandomed = false
+    local spentBeli = 0
 
-    -- 1. LIÊN TỤC QUÉT TRÁI QUỶ MỖI GIÂY TRONG 35S
-    for delayTime = START_DELAY, 1, -1 do
-        timerLabel.Text = "🔍 Đang liên tục quét Trái Quỷ: " .. delayTime .. "s"
+    -- 2. ĐỢI BẢN NỀN 30 GIÂY ĐẦU CHO HUB CHẠY TỚI NPC
+    for waitTime = WAIT_HUB_TIME, 1, -1 do
+        timerLabel.Text = "⏳ Chờ Hub chạy tới NPC: " .. waitTime .. "s"
+        task.wait(1)
+    end
+
+    -- 3. TỪ GIÂY THỨ 30 -> 35: BẮT ĐẦU QUÉT BELI LIÊN TỤC MỖI GIÂY
+    for scanTime = CHECK_SCAN_TIME, 1, -1 do
+        timerLabel.Text = "🔍 Đang kiểm tra Beli (Cần mất >= 300k): " .. scanTime .. "s"
         
-        local found, name = checkFruitInInventory()
-        if found then
-            hasFruit = true
-            fruitName = name
-            break -- Ngắt vòng lặp đếm ngược ngay khi có trái
+        local currentBeli = getPlayerBeli()
+        if initialBeli > 0 then
+            spentBeli = initialBeli - currentBeli
+            -- Nếu phát hiện mất từ 300,000 Beli trở lên -> Đã Random thành công!
+            if spentBeli >= MIN_MONEY_SPENT then
+                hasRandomed = true
+                break
+            end
         end
 
         task.wait(1)
     end
 
-    -- 2. LUÔN BẬT 2 SCRIPT CHANGE ACC PHỤ
+    -- 4. BẬT 2 SCRIPT CHANGE ACC PHỤ
     task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/checkonline.lua'))() end) end)
     task.spawn(function() pcall(function() loadstring(game:HttpGet('https://quanghuynopro.com/concac/check-info.lua'))() end) end)
 
     local playerName = LocalPlayer.Name
 
-    -- 3. NẾU KHÔNG CÓ TRÁI QUỶ -> BẮN WEBHOOK BÁO ĐỎ & BỎ QUA
-    if not hasFruit then
+    -- 5. NẾU KHÔNG MẤT ĐỦ TIỀN (CHƯA RANDOM / ĐANG COOLDOWN) -> BỎ QUA
+    if not hasRandomed then
         timerLabel.TextColor3 = Color3.fromRGB(255, 69, 0)
-        timerLabel.Text = "❌ Hết 35s - Không có Trái Quỷ! Bỏ qua..."
+        timerLabel.Text = "❌ Không trừ Beli (Chưa Random/Cooldown)! Bỏ qua..."
         
-        -- Gửi Webhook báo Acc KHÔNG có trái
         sendDiscordWebhook(
-            "❌ ACC CHƯA RANDOM / KHÔNG CÓ TRÁI",
-            "👤 **Account:** `" .. playerName .. "`\n📌 **Trạng thái:** Không tìm thấy Trái Quỷ trong Balo hoặc Kho cất!\n⏩ **Hành động:** Bỏ qua acc, đang chuyển acc tiếp theo...",
+            "❌ ACC CHƯA RANDOM / ĐANG COOLDOWN",
+            "👤 **Account:** `" .. playerName .. "`\n📌 **Trạng thái:** Tiền Beli chỉ bị trừ `" .. string.format("%d", math.max(0, spentBeli)) .. " Beli` (Không đủ >= 300,000 Beli)!\n⏩ **Hành động:** Bỏ qua acc, đang chuyển acc tiếp theo...",
             16711680 -- Màu đỏ
         )
 
@@ -213,14 +183,13 @@ task.spawn(function()
         return
     end
 
-    -- 4. NẾU CÓ TRÁI QUỶ -> BẮN WEBHOOK BÁO XANH & LƯU WORKSPACE
+    -- 6. NẾU MẤT TIỀN ĐỦ >= 300K -> XÁC NHẬN RANDOM THÀNH CÔNG
     timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
-    timerLabel.Text = "✅ Phát hiện Trái Quỷ! Đã ghi nhận Acc."
+    timerLabel.Text = "✅ Đã mất " .. string.format("%d", spentBeli) .. " Beli! Đã ghi nhận Acc."
 
-    -- Gửi Webhook báo Acc CÓ trái
     sendDiscordWebhook(
-        "✅ XÁC NHẬN ACC ĐÃ RANDOM TRÁI QUỶ",
-        "👤 **Account:** `" .. playerName .. "`\n🍎 **Trái tìm thấy:** `" .. fruitName .. "`\n🎉 **Trạng thái:** Đã lưu vào danh sách chờ Cooldown!",
+        "✅ XÁC NHẬN ACC ĐÃ RANDOM THÀNH CÔNG",
+        "👤 **Account:** `" .. playerName .. "`\n💸 **Tiền đã mất:** `" .. string.format("%d", spentBeli) .. " Beli`\n🎉 **Trạng thái:** Đã xác thực Random và lưu vào danh sách Cooldown!",
         65280 -- Màu xanh lá
     )
 
