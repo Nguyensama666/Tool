@@ -14,7 +14,7 @@ return {
     -- 3. CẤU HĨNH DATABASE REDIS & DISCORD WEBHOOK
     UpstashURL     = "https://accurate-hyena-88788.upstash.io",
     UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
-    DiscordWebhook = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE",
+    DiscordWebhook = "https://discord.com/api/webhooks/1531539189991080096/tiE2wTBP1GWA-NGCO8L3tXBkmKre8WTA7dY9Xzz7nzq9DOBPdTCUZXXn3o2M6nTftWaP",
     
     -- 4. LINK SCRIPT TRÊN GITHUB CỦA BẠN
     Scripts = {
