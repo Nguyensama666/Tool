@@ -1,6 +1,6 @@
 return {
     -- 1. CẤU HĨNH TÀI KHOẢN CHÍNH
-    MainAccountName = " jgtjcjkibd80134", -- Điền đúng Username Acc Chính của bạn
+    MainAccountName = " uwrnrw", -- Điền đúng Username Acc Chính của bạn
     
     -- 2. CẤU HĨNH MỤC TIÊU FARM & HAKI
     TargetBoss    = "RipIndra",           -- "DoughKing" hoặc "RipIndra"
