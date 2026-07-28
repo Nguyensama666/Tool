@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT 4: CONTROLLER TRUNG TÂM (CÓ WEBHOOK STATUS ĐẸP & TỐI ƯU 24/7)
+-- SCRIPT 4: CONTROLLER TRUNG TÂM (CÓ BẢNG STATUS MÀN HÌNH & WEBHOOK FIX)
 -- ====================================================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,20 +10,76 @@ local LocalPlayer = Players.LocalPlayer
 
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
 
--- 1. TẢI CONFIG
+-- 1. TẢI CONFIG CHÍNH TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
+
+-- ----------------------------------------------------
+-- GIAO DIỆN BẢNG STATUS TRÊN MÀN HÌNH (DÀNH CHO ĐIỆN THOẠI)
+-- ----------------------------------------------------
+local function CreateStatusUI()
+    local sg = CoreGui:FindFirstChild("KaitunStatusUI")
+    if sg then sg:Destroy() end
+
+    sg = Instance.new("ScreenGui")
+    sg.Name = "KaitunStatusUI"
+    sg.ResetOnSpawn = false
+    sg.Parent = CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 260, 0, 70)
+    frame.Position = UDim2.new(0.5, -130, 0, 15) -- Nằm chính giữa phía trên màn hình
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 0
+    frame.Active = true
+    frame.Draggable = true -- Có thể kéo di chuyển trên điện thoại
+    frame.Parent = sg
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 25)
+    title.Position = UDim2.new(0, 0, 0, 5)
+    title.Text = "🔥 KAITUN AUTOMATION SYSTEM"
+    title.TextColor3 = Color3.fromRGB(255, 200, 0)
+    title.TextSize = 13
+    title.Font = Enum.Font.SourceSansBold
+    title.BackgroundTransparency = 1
+    title.Parent = frame
+
+    local statusText = Instance.new("TextLabel")
+    statusText.Name = "StatusLabel"
+    statusText.Size = UDim2.new(1, -20, 0, 35)
+    statusText.Position = UDim2.new(0, 10, 0, 30)
+    statusText.Text = "Đang khởi động hệ thống..."
+    statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    statusText.TextSize = 12
+    statusText.Font = Enum.Font.SourceSans
+    statusText.TextWrapped = true
+    statusText.BackgroundTransparency = 1
+    statusText.Parent = frame
+
+    return function(text, color)
+        statusText.Text = text
+        if color then statusText.TextColor3 = color end
+    end
+end
+
+local UpdateStatus = CreateStatusUI()
 
 -- 2. TỰ ĐỘNG REJOIN KHI BỊ DISCONNECT
 CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
     if child.Name == "ErrorPrompt" then
-        print("[HỆ THỐNG] ⚠️ Bị ngắt kết nối! Tự động Rejoin sau 3s...")
+        UpdateStatus("⚠️ Bị ngắt kết nối! Rejoin sau 3s...", Color3.fromRGB(255, 0, 0))
         task.wait(3)
         TeleportService:Teleport(game.PlaceId, LocalPlayer)
     end
 end)
 
 -- ----------------------------------------------------
--- HÀM BỔ TRỢ (GET INVENTORY & CACAO)
+-- HÀM BỔ TRỢ (CHECK KHO ĐỒ & CACAO)
 -- ----------------------------------------------------
 local function GetInventory()
     local success, result = pcall(function()
@@ -40,7 +96,7 @@ local function GetItemCount(itemName)
 end
 
 -- ----------------------------------------------------
--- HÀM GỬI REDIS & WEBHOOK (GIAO DIỆN SIÊU ĐẸP)
+-- HÀM BẮN WEBHOOK DISCORD
 -- ----------------------------------------------------
 local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
     local placeId = game.PlaceId
@@ -48,7 +104,6 @@ local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
     local bossType = Config.TargetBoss or "RipIndra"
     local timeString = os.date("!%Y-%m-%d %H:%M:%S") .. " (UTC)"
 
-    -- Đẩy dữ liệu lên Redis
     pcall(function()
         http_request({
             Url = Config.UpstashURL .. "/set/TargetJobId/" .. jobId .. "?EX=300",
@@ -65,21 +120,20 @@ local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
     local teleportCode = string.format("game:GetService(\"TeleportService\"):TeleportToPlaceInstance(%d, \"%s\", game.Players.LocalPlayer)", placeId, jobId)
     local isDough = (bossType == "DoughKing")
 
-    -- Gửi Discord Webhook
     if Config.DiscordWebhook and Config.DiscordWebhook ~= "" then
         local payload = {
             username = "System Scout",
             avatar_url = "https://i.imgur.com/8N4X0ZT.png",
             embeds = {{
-                title = "🔥 ĐÃ TÌM THẤY " .. string.upper(chaliceType) .. "!",
-                description = "✨ **Hệ thống đã sẵn sàng triệu hồi Boss!** Acc Phụ chuẩn bị Auto-Join.",
-                color = isDough and 0xFFA500 or 0xFF0000, -- Cam cho Dough, Đỏ cho Indra
+                title = "🔥 ĐÃ PHÁT HIỆN " .. string.upper(chaliceType) .. "!",
+                description = "✨ **Acc Chính đã sẵn sàng!** Acc Phụ đang tiến hành Auto-Join...",
+                color = isDough and 0xFFA500 or 0xFF0000,
                 fields = {
                     { name = "👤 Tài Khoản Chính", value = "```" .. LocalPlayer.Name .. "```", inline = true },
                     { name = "🎯 Boss Mục Tiêu", value = "```" .. bossType .. "```", inline = true },
-                    { name = "📊 Trạng Thái Túi Đồ", value = isDough and ("🍫 **Cacao:** `" .. tostring(cocoaCount) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🏆 **Chén:** `" .. chaliceType .. "`") or ("🏆 **Chén:** `" .. chaliceName .. "`\n🎨 **Haki:** `Đã Hoàn Tất`"), inline = false },
+                    { name = "📊 Trạng Thái Túi Đồ", value = isDough and ("🍫 **Cacao:** `" .. tostring(cocoaCount) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🏆 **Chén:** `" .. chaliceType .. "`") or ("🏆 **Chén:** `" .. chaliceType .. "`\n🎨 **Haki:** `Đã Hoàn Tất`"), inline = false },
                     { name = "📌 JobId Server", value = "```" .. jobId .. "```", inline = false },
-                    { name = "🚀 Mã Script Teleport Cho Acc Phụ", value = "```lua\n" .. teleportCode .. "\n```", inline = false }
+                    { name = "🚀 Mã Teleport Cho Acc Phụ", value = "```lua\n" .. teleportCode .. "\n```", inline = false }
                 },
                 thumbnail = {
                     url = isDough and "https://i.imgur.com/3Z8q0m1.png" or "https://i.imgur.com/YX0m5aL.png"
@@ -99,7 +153,6 @@ local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
                 Body = HttpService:JSONEncode(payload)
             })
         end)
-        print("[ACC CHÍNH] 🚀 Đã gửi Báo Báo Đẹp lên Webhook Discord thành công!")
     end
 end
 
@@ -107,34 +160,28 @@ end
 -- LOGIC ACC CHÍNH
 -- ----------------------------------------------------
 local function HandleMainAccount()
-    print("==============================================")
-    print("STATUS: ACC CHÍNH ĐANG HOẠT ĐỘNG")
-    print("==============================================")
+    UpdateStatus("STATUS: ACC CHÍNH ĐANG HOẠT ĐỘNG", Color3.fromRGB(0, 255, 255))
 
-    -- 1. Check công tắc NeedFarmHaki
+    -- 1. Check Haki
     if Config.NeedFarmHaki == true then
-        print("[STATUS] 🔴 Cần Farm Haki Legend -> Bật Script Farm Haki...")
+        UpdateStatus("🔴 Cần Farm Haki Legend\n-> Bật Script Farm Haki...", Color3.fromRGB(255, 100, 100))
         loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
         return
-    else
-        print("[STATUS] 🟢 Haki Legend: ĐÃ ĐỦ (Bỏ qua)")
     end
 
-    -- 2. Check Cacao (Nếu chọn DoughKing)
+    -- 2. Check Cacao
     local currentCocoa = 0
     if Config.TargetBoss == "DoughKing" then
         currentCocoa = GetItemCount("Conjured Cocoa")
         if currentCocoa < Config.RequiredCocoa then
-            print("[STATUS] 🔴 Cacao: Thiếu (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ") -> Bật Script Farm Cacao...")
+            UpdateStatus("🔴 Thiếu Cacao (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ")\n-> Bật Script Farm Cacao...", Color3.fromRGB(255, 150, 0))
             loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
             return
-        else
-            print("[STATUS] 🟢 Cacao: ĐÃ ĐỦ (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ")")
         end
     end
 
-    -- 3. ĐỦ ĐIỀU KIỆN -> BẬT FARM CHÉN & WATCHER
-    print("[STATUS] 🚀 Tất cả điều kiện ĐÃ ĐỦ! Bật Farm Chén & Watcher Soi Chén...")
+    -- 3. Mọi thứ OK -> Bật Soi Chén
+    UpdateStatus("🟢 Đủ điều kiện!\n-> Bật Farm Chén & Watcher Soi Chén...", Color3.fromRGB(0, 255, 0))
 
     task.spawn(function()
         loadstring(game:HttpGet(Config.Scripts.FarmChalice))()
@@ -151,11 +198,7 @@ local function HandleMainAccount()
             if (sweetChalice or godsChalice) and not hasFoundChalice then
                 hasFoundChalice = true
                 local chaliceName = sweetChalice and "Sweet Chalice" or "God's Chalice"
-                
-                print("==============================================")
-                print("🎉 PHÁT HIỆN " .. string.upper(chaliceName) .. " TRONG TÚI ĐỒ!")
-                print("==============================================")
-
+                UpdateStatus("🎉 ĐÃ PHÁT HIỆN " .. string.upper(chaliceName) .. "!\n-> Đã bắn tín hiệu Webhook!", Color3.fromRGB(255, 215, 0))
                 PushJobIdAndSendWebhook(chaliceName, currentCocoa)
                 break
             end
@@ -164,28 +207,22 @@ local function HandleMainAccount()
 end
 
 -- ----------------------------------------------------
--- LOGIC ACC PHỤ (AUTO JOIN & TỐI ƯU CẤU HÌNH)
+-- LOGIC ACC PHỤ
 -- ----------------------------------------------------
 local function HandleAltAccount()
-    print("==============================================")
-    print("STATUS: ACC PHỤ ĐANG TREO NGẦM (LẮNG NGHE SIGNAL)")
-    print("==============================================")
+    UpdateStatus("STATUS: ACC PHỤ ĐANG TREO NGẦM", Color3.fromRGB(200, 200, 200))
 
-    -- Hạ đồ họa để giảm RAM/CPU
     pcall(function()
         game:GetService("UserSettings").GameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
         settings().Rendering.QualityLevel = 1
     end)
 
-    -- Kích hoạt Anti-AFK
     task.spawn(function()
         pcall(function()
             loadstring(game:HttpGet(Config.Scripts.AntiAFK))()
-            print("[STATUS] 🛡️ Anti-AFK đã kích hoạt ngầm!")
         end)
     end)
 
-    -- Vòng lặp Auto-Join
     task.spawn(function()
         while task.wait(3) do
             local res = pcall(function()
@@ -206,13 +243,13 @@ local function HandleAltAccount()
 
                 if targetJobId and targetJobId ~= true and targetJobId ~= "" then
                     if game.JobId ~= targetJobId then
-                        print("[STATUS] 🚀 Phát hiện JobId! Đang Auto-Join: " .. targetJobId)
+                        UpdateStatus("🚀 Phát hiện Server có Chén!\n-> Đang Auto-Join...", Color3.fromRGB(0, 255, 255))
                         pcall(function()
                             TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJobId, LocalPlayer)
                         end)
                         task.wait(5)
                     else
-                        print("✅ [STATUS] Đã vào đúng Server! DỪNG AUTO-JOIN.")
+                        UpdateStatus("✅ Đã vào đúng Server!\n-> Bật Script Đánh Boss!", Color3.fromRGB(0, 255, 0))
                         local getBossRes = http_request({
                             Url = Config.UpstashURL .. "/get/TargetBoss",
                             Method = "GET",
@@ -229,7 +266,7 @@ local function HandleAltAccount()
                         break
                     end
                 else
-                    print("[STATUS] 💤 Đang treo ngầm chờ Acc Chính tìm Chén...")
+                    UpdateStatus("💤 Đang treo ngầm chờ Acc Chính tìm Chén...", Color3.fromRGB(180, 180, 180))
                 end
             end
         end
@@ -237,7 +274,7 @@ local function HandleAltAccount()
 end
 
 -- ----------------------------------------------------
--- KHỞI CHẠY HỆ THỐNG
+-- KHỞI CHẠY
 -- ----------------------------------------------------
 if LocalPlayer.Name == Config.MainAccountName then
     HandleMainAccount()
