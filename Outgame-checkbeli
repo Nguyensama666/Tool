@@ -3,8 +3,8 @@
 -- =======================================================
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1262811878539923557/ewj9wKs8KbEk4R58GaCFKbZwow84BuyFrzVpVTd7sCEWobOevB6UW3hHahZUgxhQZUhl"
-local TOTAL_TIME = 90
-local MIN_BELI = 500000 -- Mốc 500k Beli
+local TOTAL_TIME = 180
+local MIN_BELI = 100000 -- Mốc 500k Beli
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
