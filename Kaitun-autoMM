@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT 4: CONTROLLER TRUNG TÂM (FIX WEBHOOK ĐỨNG YÊN & GIỜ VN +7)
+-- SCRIPT 4: CONTROLLER TRUNG TÂM (CÓ BẢNG STATUS WEBHOOK ĐỨNG YÊN)
 -- ====================================================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,11 +13,11 @@ local http_request = (syn and syn.request) or (http and http.request) or http_re
 -- 1. TẢI CONFIG CHÍNH TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
 
+-- Variable lưu Message ID của Status Webhook để Edit
 local StatusMessageId = nil
-local CurrentActionText = "Đang khởi động..."
 
 -- ----------------------------------------------------
--- GIAO DIỆN BẢNG STATUS TRÊN MÀN HÌNH ĐIỆN THOẠI
+-- GIAO DIỆN BẢNG STATUS TRÊN MÀN HÌNH GAME
 -- ----------------------------------------------------
 local function CreateStatusUI()
     local sg = CoreGui:FindFirstChild("KaitunStatusUI")
@@ -72,17 +72,8 @@ end
 
 local UpdateUI = CreateStatusUI()
 
--- 2. TỰ ĐỘNG REJOIN KHI BỊ DISCONNECT
-CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-    if child.Name == "ErrorPrompt" then
-        UpdateUI("⚠️ Bị ngắt kết nối! Rejoin sau 3s...", Color3.fromRGB(255, 0, 0))
-        task.wait(3)
-        TeleportService:Teleport(game.PlaceId, LocalPlayer)
-    end
-end)
-
 -- ----------------------------------------------------
--- HÀM BỔ TRỢ GET INVENTORY
+-- HÀM BỔ TRỢ GET ITEM
 -- ----------------------------------------------------
 local function GetInventory()
     local success, result = pcall(function()
@@ -99,7 +90,7 @@ local function GetItemCount(itemName)
 end
 
 -- ----------------------------------------------------
--- HÀM CẬP NHẬT WEBHOOK STATUS ĐỨNG YÊN (GIỜ VIỆT NAM +7)
+-- HÀM CẬP NHẬT WEBHOOK STATUS ĐỨNG YÊN (EDIT MESSAGE)
 -- ----------------------------------------------------
 local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" then return end
@@ -110,9 +101,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
     local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
                        (char and (char:FindFirstChild("Sweet Chalice") or char:FindFirstChild("God's Chalice")))
     
-    -- Lấy giờ Việt Nam (GMT+7): os.time() + 7 * 3600 giây
-    local vnTime = os.date("*t", os.time() + 25200)
-    local timeString = string.format("%02d/%02d/%04d %02d:%02d:%02d (VN)", vnTime.day, vnTime.month, vnTime.year, vnTime.hour, vnTime.min, vnTime.sec)
+    local timeString = os.date("!%Y-%m-%d %H:%M:%S") .. " (UTC)"
 
     local payload = {
         username = "Acc Status Tracker",
@@ -120,7 +109,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
         embeds = {{
             title = "🟢 TRẠNG THÁI HOẠT ĐỘNG ACC CHÍNH",
             description = "✨ **Hệ thống đang cập nhật Trạng thái Trực tiếp (Live Status)...**",
-            color = 0x00FF00,
+            color = 0x00FF00, -- Màu xanh lá
             fields = {
                 { name = "👤 Tên Tài Khoản", value = "```" .. LocalPlayer.Name .. "```", inline = true },
                 { name = "🎯 Boss Mục Tiêu", value = "```" .. tostring(Config.TargetBoss) .. "```", inline = true },
@@ -137,7 +126,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
 
     pcall(function()
         if not StatusMessageId then
-            -- Gửi POST lần đầu để lấy Message ID chính xác từ Discord trả về
+            -- Lần đầu tiên: Gửi POST để tạo tin nhắn mới + lấy Message ID (?wait=true)
             local res = http_request({
                 Url = Config.StatusWebhook .. "?wait=true",
                 Method = "POST",
@@ -146,12 +135,12 @@ local function SendOrUpdateStatusWebhook(actionStatus)
             })
             if res and res.Body then
                 local data = HttpService:JSONDecode(res.Body)
-                if data and data.id then 
-                    StatusMessageId = tostring(data.id) 
+                if data and data.id then
+                    StatusMessageId = data.id
                 end
             end
         else
-            -- Các lần sau dùng PATCH để chỉnh sửa đúng cái tin nhắn cũ (giúp bảng đứng yên một chỗ)
+            -- Các lần tiếp theo: Gửi PATCH để CHỈNH SỬA tin nhắn cũ (không tạo tin nhắn mới)
             http_request({
                 Url = Config.StatusWebhook .. "/messages/" .. StatusMessageId,
                 Method = "PATCH",
@@ -163,6 +152,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
 end
 
 -- Vòng lặp cập nhật Webhook Status đứng yên mỗi 15 giây
+local CurrentActionText = "Đang khởi động..."
 task.spawn(function()
     while task.wait(15) do
         SendOrUpdateStatusWebhook(CurrentActionText)
@@ -170,14 +160,13 @@ task.spawn(function()
 end)
 
 -- ----------------------------------------------------
--- HÀM BẮN WEBHOOK BÁO CHÉN THÁNH
+-- HÀM BẮN WEBHOOK BÁO CHÉN (TIN NHẮN NỔ THÔNG BÁO)
 -- ----------------------------------------------------
 local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
     local placeId = game.PlaceId
     local jobId = game.JobId
     local bossType = Config.TargetBoss or "RipIndra"
-    local vnTime = os.date("*t", os.time() + 25200)
-    local timeString = string.format("%02d/%02d/%04d %02d:%02d:%02d (VN)", vnTime.day, vnTime.month, vnTime.year, vnTime.hour, vnTime.min, vnTime.sec)
+    local timeString = os.date("!%Y-%m-%d %H:%M:%S") .. " (UTC)"
 
     pcall(function()
         http_request({
@@ -239,33 +228,29 @@ local function HandleMainAccount()
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 255))
     SendOrUpdateStatusWebhook(CurrentActionText)
 
-    -- 1. BẬT SCRIPT CHECK BERRY KHI NEEDFARMHAKI = TRUE
+    -- 1. Check Haki
     if Config.NeedFarmHaki == true then
-        CurrentActionText = "🫐 Đang kiểm tra Berry Craft Haki..."
-        UpdateUI(CurrentActionText, Color3.fromRGB(255, 170, 0))
+        CurrentActionText = "🔴 Đang Farm Haki Legend..."
+        UpdateUI(CurrentActionText, Color3.fromRGB(255, 100, 100))
         SendOrUpdateStatusWebhook(CurrentActionText)
-
-        loadstring(game:HttpGet(Config.Scripts.CheckBerry))()
+        loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
         return
-    else
-        print("[STATUS] 🟢 NeedFarmHaki = false -> Bỏ qua Check Berry & Haki!")
     end
 
-    -- 2. CHECK CACAO (CHỈ CHẠY KHI NEEDFARMHAKI = FALSE)
+    -- 2. Check Cacao
     local currentCocoa = 0
     if Config.TargetBoss == "DoughKing" then
         currentCocoa = GetItemCount("Conjured Cocoa")
         if currentCocoa < Config.RequiredCocoa then
-            CurrentActionText = "🔴 Thiếu Cacao (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ")\n-> Bật Script Farm Cacao..."
+            CurrentActionText = "🔴 Đang Farm Cacao (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ")..."
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
-            
             loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
             return
         end
     end
 
-    -- 3. ĐỦ ĐIỀU KIỆN -> BẬT FARM CHÉN & WATCHER
+    -- 3. Check Chén
     CurrentActionText = "🟢 Đang Hop Server & Soi Chén Thánh..."
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
     SendOrUpdateStatusWebhook(CurrentActionText)
@@ -364,7 +349,7 @@ local function HandleAltAccount()
 end
 
 -- ----------------------------------------------------
--- KHỞI CHẠY HỆ THỐNG
+-- KHỞI CHẠY
 -- ----------------------------------------------------
 if LocalPlayer.Name == Config.MainAccountName then
     HandleMainAccount()
