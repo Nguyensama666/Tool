@@ -11,7 +11,7 @@ return {
     DiscordWebhook = "https://discord.com/api/webhooks/1531539189991080096/tiE2wTBP1GWA-NGCO8L3tXBkmKre8WTA7dY9Xzz7nzq9DOBPdTCUZXXn3o2M6nTftWaP",
     
     -- Webhook 2: Bảng STATUS ĐỨNG YÊN liên tục cập nhật trạng thái Acc (ĐIỀN LINK WEBHOOK MỚI VÀO ĐÂY)
-    StatusWebhook  = "https://discord.com/api/webhooks/YOUR_NEW_WEBHOOK_HERE",
+    StatusWebhook  = "https://discord.com/api/webhooks/1531676116329173036/7BXj2FCVCxqAuXU4twFgEVLO7ojU9k9UOfnQLW-G951Jod5BIcodFcrIw1TYZlOnGtc7",
     
     Scripts = {
         FarmChalice = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20ch%C3%A9n%20th%C3%A1nh%20safe",
