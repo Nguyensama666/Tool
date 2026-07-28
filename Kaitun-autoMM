@@ -1,0 +1,217 @@
+-- ====================================================
+-- SCRIPT 4: CONTROLLER TRUNG TÂM (SỬ DỤNG CÔNG TẮC HAKI CONFIG)
+-- ====================================================
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+local http_request = (syn and syn.request) or (http and http.request) or http_request or request
+
+-- Tải Bảng Cấu Hình Config
+local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config.lua"))()
+
+-- AUTO REJOIN NẾU BỊ DISCONNECT
+CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == "ErrorPrompt" then
+        print("[HỆ THỐNG] Phát hiện bị ngắt kết nối! Đang tự động kết nối lại...")
+        task.wait(3)
+        TeleportService:Teleport(game.PlaceId, LocalPlayer)
+    end
+end)
+
+-- ----------------------------------------------------
+-- HÀM BỔ TRỢ (CHECK CACAO THỰC TẾ)
+-- ----------------------------------------------------
+local function GetInventory()
+    local success, result = pcall(function()
+        return ReplicatedStorage.Remotes.CommF_:InvokeServer("getInventory")
+    end)
+    return success and result or {}
+end
+
+local function GetItemCount(itemName)
+    for _, item in pairs(GetInventory()) do
+        if item.Name == itemName then return item.Count or 1 end
+    end
+    return 0
+end
+
+-- ----------------------------------------------------
+-- HÀM GỬI REDIS & WEBHOOK THÔNG BÁO
+-- ----------------------------------------------------
+local function PushJobIdAndSendWebhook(chaliceType)
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    local bossType = Config.TargetBoss or "RipIndra"
+
+    -- Đẩy dữ liệu lên Redis (Hạn 5 phút)
+    http_request({
+        Url = Config.UpstashURL .. "/set/TargetJobId/" .. jobId .. "?EX=300",
+        Method = "GET",
+        Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+    })
+    http_request({
+        Url = Config.UpstashURL .. "/set/TargetBoss/" .. bossType .. "?EX=300",
+        Method = "GET",
+        Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+    })
+
+    local teleportCode = string.format("game:GetService(\"TeleportService\"):TeleportToPlaceInstance(%d, \"%s\", game.Players.LocalPlayer)", placeId, jobId)
+
+    -- Gửi Discord Webhook
+    if Config.DiscordWebhook and Config.DiscordWebhook ~= "" then
+        local payload = {
+            embeds = {{
+                title = "🔥 ĐÃ PHÁT HIỆN " .. string.upper(chaliceType) .. "!",
+                color = (bossType == "DoughKing") and 16753920 or 16711680,
+                fields = {
+                    { name = "👤 Acc Chính", value = "`" .. LocalPlayer.Name .. "`", inline = true },
+                    { name = "🎯 Boss Cần Đánh", value = "**" .. bossType .. "**", inline = true },
+                    { name = "📌 JobId Server", value = "```" .. jobId .. "```", inline = false },
+                    { name = "🚀 Mã Teleport Thủ Công:", value = "```lua\n" .. teleportCode .. "\n```", inline = false }
+                },
+                footer = { text = "System Scout & Main Controller" }
+            }}
+        }
+
+        http_request({
+            Url = Config.DiscordWebhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(payload)
+        })
+        print("[ACC CHÍNH] 🚀 Đã gửi JobId server có Chén lên Webhook thành công!")
+    end
+end
+
+-- ----------------------------------------------------
+-- LOGIC ACC CHÍNH
+-- ----------------------------------------------------
+local function HandleMainAccount()
+    print("[ACC CHÍNH] Bắt đầu kiểm tra điều kiện...")
+
+    -- 1. Kiểm tra công tắc NeedFarmHaki trong Config
+    if Config.NeedFarmHaki == true then
+        print("[ACC CHÍNH] Config yêu cầu Farm Haki -> Running Farm Haki...")
+        loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
+        return
+    else
+        print("[ACC CHÍNH] ⚡ Config đánh dấu ĐÃ ĐỦ HAKI (Bỏ qua bước farm Haki).")
+    end
+
+    -- 2. Check Cacao LIVE trong túi (Nếu chọn DoughKing)
+    if Config.TargetBoss == "DoughKing" then
+        print("[ACC CHÍNH] Kiểm tra số lượng Cacao trong túi...")
+        local cocoaCount = GetItemCount("Conjured Cocoa")
+        if cocoaCount < Config.RequiredCocoa then
+            print("[ACC CHÍNH] Thiếu Cacao (" .. cocoaCount .. "/" .. Config.RequiredCocoa .. ") -> Running Farm Cacao...")
+            loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
+            return
+        else
+            print("[ACC CHÍNH] ✅ Đã đủ " .. cocoaCount .. "/" .. Config.RequiredCocoa .. " Cacao!")
+        end
+    end
+
+    -- 3. Bật Script Farm Chén Thánh của bạn & Watcher soi Chén
+    print("[ACC CHÍNH] 🔄 Bật Script Farm Chén Thánh Safe & Vòng lặp Soi Chén...")
+
+    task.spawn(function()
+        loadstring(game:HttpGet(Config.Scripts.FarmChalice))()
+    end)
+
+    task.spawn(function()
+        local hasFoundChalice = false
+        while task.wait(2) do
+            local backpack = LocalPlayer:FindFirstChild("Backpack")
+            local char = LocalPlayer.Character
+            local sweetChalice = (backpack and backpack:FindFirstChild("Sweet Chalice")) or (char and char:FindFirstChild("Sweet Chalice"))
+            local godsChalice = (backpack and backpack:FindFirstChild("God's Chalice")) or (char and char:FindFirstChild("God's Chalice"))
+
+            if (sweetChalice or godsChalice) and not hasFoundChalice then
+                hasFoundChalice = true
+                local chaliceName = sweetChalice and "Sweet Chalice" or "God's Chalice"
+                
+                print("[ACC CHÍNH] 🎉 PHÁT HIỆN " .. string.upper(chaliceName) .. "!")
+                PushJobIdAndSendWebhook(chaliceName)
+                break
+            end
+        end
+    end)
+end
+
+-- ----------------------------------------------------
+-- LOGIC ACC PHỤ
+-- ----------------------------------------------------
+local function HandleAltAccount()
+    print("[ACC PHỤ] Bắt đầu khởi chạy hệ thống...")
+
+    -- Hạ mức đồ họa làm nhẹ máy
+    pcall(function()
+        game:GetService("UserSettings").GameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+        settings().Rendering.QualityLevel = 1
+    end)
+
+    -- Bật Anti-AFK
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet(Config.Scripts.AntiAFK))()
+            print("[ACC PHỤ] 🛡️ Đã kích hoạt Anti-AFK ngầm thành công!")
+        end)
+    end)
+
+    -- Lắng nghe signal & Auto-Join
+    task.spawn(function()
+        while task.wait(3) do
+            local res = http_request({
+                Url = Config.UpstashURL .. "/get/TargetJobId",
+                Method = "GET",
+                Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+            })
+
+            if res and res.Body then
+                local dataDecoded = HttpService:JSONDecode(res.Body)
+                local targetJobId = dataDecoded.result
+
+                if targetJobId and targetJobId ~= true and targetJobId ~= "" then
+                    if game.JobId ~= targetJobId then
+                        print("[ACC PHỤ] Đang Auto-Join vào Server: " .. targetJobId)
+                        pcall(function()
+                            TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJobId, LocalPlayer)
+                        end)
+                        task.wait(5)
+                    else
+                        print("✅ [ACC PHỤ] Đã vào đúng Server! DỪNG AUTO-JOIN.")
+                        local getBossRes = http_request({
+                            Url = Config.UpstashURL .. "/get/TargetBoss",
+                            Method = "GET",
+                            Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+                        })
+                        local bossData = HttpService:JSONDecode(getBossRes.Body)
+                        local targetBoss = bossData.result or Config.TargetBoss
+
+                        if targetBoss == "DoughKing" then
+                            loadstring(game:HttpGet(Config.Scripts.FightDough))()
+                        else
+                            loadstring(game:HttpGet(Config.Scripts.FightIndra))()
+                        end
+                        break
+                    end
+                else
+                    print("[ACC PHỤ] Đang treo máy chờ Acc Chính tìm Chén...")
+                end
+            end
+        end
+    end)
+end
+
+-- ----------------------------------------------------
+-- PHÂN LOẠI CHẠY THEO USERNAME
+-- ----------------------------------------------------
+if LocalPlayer.Name == Config.MainAccountName then
+    HandleMainAccount()
+else
+    HandleAltAccount()
+end
