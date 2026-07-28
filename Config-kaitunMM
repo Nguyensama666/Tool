@@ -1,39 +1,23 @@
 return {
-    -- ====================================================
-    -- 1. CẤU HĨNH TÀI KHOẢN
-    -- ====================================================
-    -- Điền chính xác Username của Acc Chính (VD: "Nguyensama666")
-    MainAccountName = "TenAccChinhCuaBan", 
-
-    -- ====================================================
-    -- 2. CẤU HĨNH MỤC TIÊU FARM (CHỌN THỦ CÔNG)
-    -- ====================================================
-    -- Chọn 1 trong 2 mục tiêu:
-    --   "DoughKing" -> Ưu tiên farm Mảnh Gương (Acc chính sẽ check đủ 10 Cacao rồi mới tìm Chén)
-    --   "RipIndra"  -> Ưu tiên farm Mũ Valkyrie (Acc chính bỏ qua check Cacao, tìm Chén luôn)
-    TargetBoss = "RipIndra", 
-
-    -- Số lượng Conjured Cocoa (Cacao) cần có nếu chọn mục tiêu "DoughKing"
-    RequiredCocoa = 10,
-
-    -- ====================================================
-    -- 3. CẤU HĨNH DATABASE (UPSTASH REDIS) & DISCORD WEBHOOK
-    -- ====================================================
-    -- URL và Token Upstash Redis của bạn
-    UpstashURL   = "https://accurate-hyena-88788.upstash.io",
-    UpstashToken = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
-
-    -- Link Discord Webhook để nhận thông báo + Mã Teleport
-    DiscordWebhook = "https://discord.com/api/webhooks/1531539189991080096/tiE2wTBP1GWA-NGCO8L3tXBkmKre8WTA7dY9Xzz7nzq9DOBPdTCUZXXn3o2M6nTftWaP",
-
-    -- ====================================================
-    -- 4. DANH SÁCH LINK SCRIPT TỪ GITHUB CỦA BẠN
-    -- ====================================================
+    -- 1. CẤU HĨNH TÀI KHOẢN CHÍNH
+    MainAccountName = "TenAccChinhCuaBan", -- Điền đúng Username Acc Chính của bạn
+    
+    -- 2. CẤU HĨNH MỤC TIÊU FARM
+    TargetBoss = "RipIndra",              -- "DoughKing" hoặc "RipIndra"
+    RequiredCocoa = 10,                   -- Số Cacao cần có nếu chọn DoughKing
+    
+    -- 3. CẤU HĨNH DATABASE REDIS & DISCORD WEBHOOK
+    UpstashURL     = "https://accurate-hyena-88788.upstash.io",
+    UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
+    DiscordWebhook = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE",
+    
+    -- 4. DANH SÁCH LINK SCRIPT TRÊN GITHUB CỦA BẠN
     Scripts = {
         FarmChalice = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20ch%C3%A9n%20th%C3%A1nh%20safe",
         FarmCocoa   = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20cacao",
         FarmHaki    = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20haki",
         FightDough  = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/%C4%90%C3%A1nh%20doughking",
-        FightIndra  = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/%C4%90%C3%A1nh%20ripindra"
+        FightIndra  = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/%C4%90%C3%A1nh%20ripindra",
+        AntiAFK     = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/anti%20afk"
     }
 }
