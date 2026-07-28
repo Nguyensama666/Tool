@@ -1,14 +1,12 @@
 return {
-    -- 1. CẤU HĨNH TÀI KHOẢN CHÍNH
-    MainAccountName = " uwrnrw", -- Điền đúng Username Acc Chính của bạn
+    -- 1. CẤU HĨNH TÀI KHOẢN CHÍNH (Đã xóa khoảng trắng thừa)
+    MainAccountName = "uwrnrw", -- Sửa đúng Username Acc Chính
     
     -- 2. CẤU HĨNH MỤC TIÊU FARM & HAKI
     TargetBoss    = "RipIndra",           -- "DoughKing" hoặc "RipIndra"
     RequiredCocoa = 10,                    -- Số Cacao cần có nếu chọn DoughKing
     
     -- CÔNG TẮC HAKI:
-    -- Bật 'true'  nếu acc CHƯA ĐỦ 3 màu Haki Legend (Script sẽ đi farm Haki)
-    -- Đổi 'false' khi acc ĐÃ ĐỦ 3 màu Haki Legend (Script bỏ qua bước này hoàn toàn)
     NeedFarmHaki  = true,                 
 
     -- 3. CẤU HĨNH DATABASE REDIS & DISCORD WEBHOOK
