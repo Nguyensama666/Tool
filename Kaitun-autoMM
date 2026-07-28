@@ -11,7 +11,7 @@ local LocalPlayer = Players.LocalPlayer
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
 
 -- Tải Bảng Cấu Hình Config
-local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config.lua"))()
+local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
 
 -- AUTO REJOIN NẾU BỊ DISCONNECT
 CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
