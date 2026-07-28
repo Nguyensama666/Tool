@@ -6,7 +6,7 @@ local WEBHOOK_URL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg
 local WAIT_HUB_TIME = 25                 -- Chờ Hub chạy tới NPC
 local CHECK_SCAN_TIME = 15               -- Quét Beli
 local MIN_MONEY_SPENT = 300000          -- Mất >= 300k Beli mới tính
-local MAX_ACC = 15                      -- Tối đa 15 acc
+local MAX_ACC = 10                      -- Tối đa 15 acc
 local COOLDOWN_RANDOM = 2 * 60 * 60     -- Cooldown 2 tiếng (7200s)
 local WEBHOOK_INTERVAL = 30             -- Webhook đếm ngược 30s/lần khi chờ
 local FILE_NAME = "RandomAccList.json"  -- File workspace
