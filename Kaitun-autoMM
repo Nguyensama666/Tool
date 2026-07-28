@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT 4: CONTROLLER TRUNG TÂM (FULL: REDIS DATABASE + CHECK BERRY + WEBHOOK ĐỨNG YÊN + GIỜ VN)
+-- SCRIPT 4: CONTROLLER TRUNG TÂM (AUTO CHECK BERRY -> FARM HAKI TỰ ĐỘNG)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -154,7 +154,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
                     { name = "👤 Tên Tài Khoản", value = "```" .. LocalPlayer.Name .. "```", inline = true },
                     { name = "🎯 Boss Mục Tiêu", value = "```" .. tostring(Config.TargetBoss) .. "```", inline = true },
                     { name = "📌 Hành Động Hiện Tại", value = "```" .. actionStatus .. "```", inline = false },
-                    { name = "📊 Trạng Thái Túi Đồ", value = "🍫 **Cacao:** `" .. tostring(currentCocoa) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🎨 **Haki:** `" .. (Config.NeedFarmHaki and "Chưa xong" or "Đã đủ") .. "`\n🏆 **Chén:** `" .. (hasChalice and "ĐÃ CÓ CHÉN!" or "Chưa có") .. "`", inline = false },
+                    { name = "📊 Trạng Thái Túi Đồ", value = "🍫 **Cacao:** `" .. tostring(currentCocoa) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🎨 **Haki:** `" .. (Config.NeedFarmHaki and "Đang Farm Haki" or "Bỏ qua Haki") .. "`\n🏆 **Chén:** `" .. (hasChalice and "ĐÃ CÓ CHÉN!" or "Chưa có") .. "`", inline = false },
                     { name = "🌐 JobId Server", value = "```" .. game.JobId .. "```", inline = false }
                 },
                 footer = {
@@ -188,7 +188,6 @@ local function SendOrUpdateStatusWebhook(actionStatus)
     end)
 end
 
--- Vòng lặp cập nhật Webhook Status đứng yên mỗi 15 giây
 task.spawn(function()
     while task.wait(15) do
         SendOrUpdateStatusWebhook(CurrentActionText)
@@ -260,42 +259,45 @@ local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
 end
 
 -- ----------------------------------------------------
--- LOGIC ACC CHÍNH (CÓ DATABASE NHỚ TASK + BẬT LIỀN TRONG 1S)
+-- LOGIC ACC CHÍNH
 -- ----------------------------------------------------
 local function HandleMainAccount()
     CurrentActionText = "STATUS: ACC CHÍNH ĐANG HOẠT ĐỘNG"
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 255))
     SendOrUpdateStatusWebhook(CurrentActionText)
 
-    -- 1. Xử lý đổi Config: Nếu tắt NeedFarmHaki thì xóa task cũ trên Redis
+    -- 1. Nếu NeedFarmHaki = false -> Xóa Task Haki trên Redis
     if Config.NeedFarmHaki == false then
         if GetRedisTask() == "FarmHaki" then
-            SetRedisTask("")
+            SetRedisTask("CLEAR")
         end
     end
 
-    -- 2. Đọc Task từ Redis để bật liền lập tức khi vừa vào game / hop server (< 1 giây)
+    -- 2. ĐỌC TASK TỪ REDIS BẬT SIÊU TỐC (< 1s)
     local savedTask = GetRedisTask()
-    if savedTask and savedTask ~= "" then
-        print("⚡ [FAST RECOVER] Nhớ Task từ Redis -> Bật liền: " .. savedTask)
+    if savedTask and savedTask ~= "" and savedTask ~= "CLEAR" then
+        print("⚡ [FAST RECOVER] Đọc Task từ Redis: " .. savedTask)
 
         if savedTask == "FarmHaki" and Config.NeedFarmHaki == true then
-            CurrentActionText = "⚡ [Bật liền 1s] Đang kiểm tra Berry Haki..."
+            CurrentActionText = "⚡ [1s] Check Berry & Farm Haki..."
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 170, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
-            local scriptUrl = Config.Scripts.CheckBerry or Config.Scripts.FarmHaki
-            if scriptUrl and scriptUrl ~= "" then loadstring(game:HttpGet(scriptUrl))() end
+            -- Chạy CheckBerry trước để bắn Webhook
+            pcall(function() loadstring(game:HttpGet(Config.Scripts.CheckBerry))() end)
+            task.wait(1)
+            -- Sau đó chạy ngay FarmHaki
+            loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
             return
         elseif savedTask == "FarmCocoa" then
-            CurrentActionText = "⚡ [Bật liền 1s] Đang chạy Farm Cacao..."
+            CurrentActionText = "⚡ [1s] Đang chạy Farm Cacao..."
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
             loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
             return
         elseif savedTask == "FarmChalice" then
-            CurrentActionText = "⚡ [Bật liền 1s] Đang Soi Chén Thánh..."
+            CurrentActionText = "⚡ [1s] Đang Soi Chén Thánh..."
             UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
@@ -306,21 +308,29 @@ local function HandleMainAccount()
         end
     end
 
-    -- 3. NẾU CHƯA CÓ TRÊN REDIS HOẶC MỚI KHỞI ĐỘNG
+    -- 3. CHẠY SONG SONG CHECK BERRY VÀ FARM HAKI KHI NEEDFARMHAKI = TRUE
     if Config.NeedFarmHaki == true then
-        CurrentActionText = "🫐 Đang kiểm tra Berry Craft Haki..."
+        CurrentActionText = "🫐 Đang Check Berry & Chạy Farm Haki..."
         UpdateUI(CurrentActionText, Color3.fromRGB(255, 170, 0))
         SendOrUpdateStatusWebhook(CurrentActionText)
 
-        SetRedisTask("FarmHaki") -- Lưu vào Database cho lần hop server sau
-        local scriptUrl = Config.Scripts.CheckBerry or Config.Scripts.FarmHaki
-        if scriptUrl and scriptUrl ~= "" then
-            loadstring(game:HttpGet(scriptUrl))()
+        SetRedisTask("FarmHaki")
+        
+        -- 1. Bật Check Berry để kiểm tra & bắn thông báo Discord
+        if Config.Scripts.CheckBerry and Config.Scripts.CheckBerry ~= "" then
+            pcall(function() loadstring(game:HttpGet(Config.Scripts.CheckBerry))() end)
+        end
+        
+        task.wait(1)
+        
+        -- 2. Bật thẳng Script Farm Haki
+        if Config.Scripts.FarmHaki and Config.Scripts.FarmHaki ~= "" then
+            loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
         end
         return
     end
 
-    -- 4. Check Cacao
+    -- 4. CHECK CACAO
     local currentCocoa = 0
     if Config.TargetBoss == "DoughKing" then
         currentCocoa = GetItemCount("Conjured Cocoa")
@@ -335,7 +345,7 @@ local function HandleMainAccount()
         end
     end
 
-    -- 5. ĐỦ ĐIỀU KIỆN -> FARM CHÉN
+    -- 5. BẬT SOI CHÉN
     CurrentActionText = "🟢 Đang Hop Server & Soi Chén Thánh..."
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
     SendOrUpdateStatusWebhook(CurrentActionText)
