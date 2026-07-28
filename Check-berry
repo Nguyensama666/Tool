@@ -1,0 +1,93 @@
+-- ====================================================
+-- SCRIPT CON: CHECK & FARM BERRY CRAFT HAKI LEGENDARY
+-- ====================================================
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- 1. YÊU CẦU NGUYÊN LIỆU CRAFT HAKI LEGEND
+local REQUIRED_BERRIES = {
+    ["Red Cherry Berry"]  = 15, -- Dùng craft Pure Red
+    ["White Cloud Berry"] = 10, -- Dùng craft Snow White
+    ["Pink Pig Berry"]    = 15  -- Dùng craft Winter Sky
+}
+
+-- 2. HÀM ĐỌC KHO ĐỒ MATERIAL
+local function GetInventory()
+    local success, result = pcall(function()
+        return ReplicatedStorage.Remotes.CommF_:InvokeServer("getInventory")
+    end)
+    return success and result or {}
+end
+
+local function GetBerryCount(berryName)
+    for _, item in pairs(GetInventory()) do
+        if item.Type == "Material" and item.Name == berryName then
+            return item.Count or 1
+        end
+    end
+    return 0
+end
+
+-- 3. HÀM CHECK TỔNG QUAN
+local function CheckBerryStatus()
+    local redCount   = GetBerryCount("Red Cherry Berry")
+    local whiteCount = GetBerryCount("White Cloud Berry")
+    local pinkCount  = GetBerryCount("Pink Pig Berry")
+
+    print("==============================================")
+    print("📊 TRẠNG THÁI BERRY CRAFT HAKI LEGEND:")
+    print("🍒 Red Cherry Berry : " .. redCount .. "/" .. REQUIRED_BERRIES["Red Cherry Berry"])
+    print("☁️ White Cloud Berry: " .. whiteCount .. "/" .. REQUIRED_BERRIES["White Cloud Berry"])
+    print("🐷 Pink Pig Berry   : " .. pinkCount .. "/" .. REQUIRED_BERRIES["Pink Pig Berry"])
+    print("==============================================")
+
+    local isLackRed   = redCount < REQUIRED_BERRIES["Red Cherry Berry"]
+    local isLackWhite = whiteCount < REQUIRED_BERRIES["White Cloud Berry"]
+    local isLackPink  = pinkCount < REQUIRED_BERRIES["Pink Pig Berry"]
+
+    return (not isLackRed and not isLackWhite and not isLackPink), {
+        Red = redCount,
+        White = whiteCount,
+        Pink = pinkCount
+    }
+end
+
+-- 4. LOGIC TỰ ĐỘNG THỰC THI
+local isEnough, currentCounts = CheckBerryStatus()
+
+if not isEnough then
+    print("[BERRY MODULE] 🔴 CHƯA ĐỦ BERRY! Đang tiến hành lùng bụi cây hái quả...")
+    
+    -- Vòng lặp thu thập Berry
+    task.spawn(function()
+        while task.wait(1) do
+            -- Kiểm tra lại kho đồ
+            local enoughNow, _ = CheckBerryStatus()
+            if enoughNow then
+                print("[BERRY MODULE] 🎉 ĐÃ THU THẬP ĐỦ TẤT CẢ BERRY!")
+                break
+            end
+
+            -- LOGIC BAY ĐẾN CÁC BỤI CÂY (BUSHES) TRÊN BẢN ĐỒ
+            -- Tùy thuộc vào script Tween/Teleport của bạn đến vị trí bụi cây hái quả
+            pcall(function()
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if obj.Name:find("Bush") or obj.Name:find("Berry") then
+                        if obj:FindFirstChild("HumanoidRootPart") or obj:IsA("BasePart") then
+                            local targetPart = obj:FindFirstChild("HumanoidRootPart") or obj
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = targetPart.CFrame * CFrame.new(0, 3, 0)
+                            
+                            -- Thao tác hái quả
+                            fireclickdetector(obj:FindFirstChildOfClass("ClickDetector"))
+                            task.wait(0.5)
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+else
+    print("[BERRY MODULE] 🟢 ĐÃ ĐỦ TẤT CẢ BERRY CRAFT HAKI LEGEND!")
+    print("[BERRY MODULE] -> Sẵn sàng cho bước tiếp theo.")
+end
