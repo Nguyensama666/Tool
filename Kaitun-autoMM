@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT 4: CONTROLLER TRUNG TÂM (CÓ BẢNG STATUS MÀN HÌNH & WEBHOOK FIX)
+-- SCRIPT 4: CONTROLLER TRUNG TÂM (CÓ BẢNG STATUS WEBHOOK ĐỨNG YÊN)
 -- ====================================================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,8 +13,11 @@ local http_request = (syn and syn.request) or (http and http.request) or http_re
 -- 1. TẢI CONFIG CHÍNH TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
 
+-- Variable lưu Message ID của Status Webhook để Edit
+local StatusMessageId = nil
+
 -- ----------------------------------------------------
--- GIAO DIỆN BẢNG STATUS TRÊN MÀN HÌNH (DÀNH CHO ĐIỆN THOẠI)
+-- GIAO DIỆN BẢNG STATUS TRÊN MÀN HÌNH GAME
 -- ----------------------------------------------------
 local function CreateStatusUI()
     local sg = CoreGui:FindFirstChild("KaitunStatusUI")
@@ -27,12 +30,12 @@ local function CreateStatusUI()
 
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 260, 0, 70)
-    frame.Position = UDim2.new(0.5, -130, 0, 15) -- Nằm chính giữa phía trên màn hình
+    frame.Position = UDim2.new(0.5, -130, 0, 15)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     frame.BackgroundTransparency = 0.2
     frame.BorderSizePixel = 0
     frame.Active = true
-    frame.Draggable = true -- Có thể kéo di chuyển trên điện thoại
+    frame.Draggable = true
     frame.Parent = sg
 
     local corner = Instance.new("UICorner")
@@ -67,19 +70,10 @@ local function CreateStatusUI()
     end
 end
 
-local UpdateStatus = CreateStatusUI()
-
--- 2. TỰ ĐỘNG REJOIN KHI BỊ DISCONNECT
-CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-    if child.Name == "ErrorPrompt" then
-        UpdateStatus("⚠️ Bị ngắt kết nối! Rejoin sau 3s...", Color3.fromRGB(255, 0, 0))
-        task.wait(3)
-        TeleportService:Teleport(game.PlaceId, LocalPlayer)
-    end
-end)
+local UpdateUI = CreateStatusUI()
 
 -- ----------------------------------------------------
--- HÀM BỔ TRỢ (CHECK KHO ĐỒ & CACAO)
+-- HÀM BỔ TRỢ GET ITEM
 -- ----------------------------------------------------
 local function GetInventory()
     local success, result = pcall(function()
@@ -96,7 +90,77 @@ local function GetItemCount(itemName)
 end
 
 -- ----------------------------------------------------
--- HÀM BẮN WEBHOOK DISCORD
+-- HÀM CẬP NHẬT WEBHOOK STATUS ĐỨNG YÊN (EDIT MESSAGE)
+-- ----------------------------------------------------
+local function SendOrUpdateStatusWebhook(actionStatus)
+    if not Config.StatusWebhook or Config.StatusWebhook == "" then return end
+
+    local currentCocoa = GetItemCount("Conjured Cocoa")
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local char = LocalPlayer.Character
+    local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
+                       (char and (char:FindFirstChild("Sweet Chalice") or char:FindFirstChild("God's Chalice")))
+    
+    local timeString = os.date("!%Y-%m-%d %H:%M:%S") .. " (UTC)"
+
+    local payload = {
+        username = "Acc Status Tracker",
+        avatar_url = "https://i.imgur.com/8N4X0ZT.png",
+        embeds = {{
+            title = "🟢 TRẠNG THÁI HOẠT ĐỘNG ACC CHÍNH",
+            description = "✨ **Hệ thống đang cập nhật Trạng thái Trực tiếp (Live Status)...**",
+            color = 0x00FF00, -- Màu xanh lá
+            fields = {
+                { name = "👤 Tên Tài Khoản", value = "```" .. LocalPlayer.Name .. "```", inline = true },
+                { name = "🎯 Boss Mục Tiêu", value = "```" .. tostring(Config.TargetBoss) .. "```", inline = true },
+                { name = "📌 Hành Động Hiện Tại", value = "```" .. actionStatus .. "```", inline = false },
+                { name = "📊 Trạng Thái Túi Đồ", value = "🍫 **Cacao:** `" .. tostring(currentCocoa) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🎨 **Haki:** `" .. (Config.NeedFarmHaki and "Chưa xong" or "Đã đủ") .. "`\n🏆 **Chén:** `" .. (hasChalice and "ĐÃ CÓ CHÉN!" or "Chưa có") .. "`", inline = false },
+                { name = "🌐 JobId Server", value = "```" .. game.JobId .. "```", inline = false }
+            },
+            footer = {
+                text = "🤖 Live Status • Cập nhật lúc " .. timeString,
+                icon_url = "https://i.imgur.com/8N4X0ZT.png"
+            }
+        }}
+    }
+
+    pcall(function()
+        if not StatusMessageId then
+            -- Lần đầu tiên: Gửi POST để tạo tin nhắn mới + lấy Message ID (?wait=true)
+            local res = http_request({
+                Url = Config.StatusWebhook .. "?wait=true",
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+            if res and res.Body then
+                local data = HttpService:JSONDecode(res.Body)
+                if data and data.id then
+                    StatusMessageId = data.id
+                end
+            end
+        else
+            -- Các lần tiếp theo: Gửi PATCH để CHỈNH SỬA tin nhắn cũ (không tạo tin nhắn mới)
+            http_request({
+                Url = Config.StatusWebhook .. "/messages/" .. StatusMessageId,
+                Method = "PATCH",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        end
+    end)
+end
+
+-- Vòng lặp cập nhật Webhook Status đứng yên mỗi 15 giây
+local CurrentActionText = "Đang khởi động..."
+task.spawn(function()
+    while task.wait(15) do
+        SendOrUpdateStatusWebhook(CurrentActionText)
+    end
+end)
+
+-- ----------------------------------------------------
+-- HÀM BẮN WEBHOOK BÁO CHÉN (TIN NHẮN NỔ THÔNG BÁO)
 -- ----------------------------------------------------
 local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
     local placeId = game.PlaceId
@@ -160,11 +224,15 @@ end
 -- LOGIC ACC CHÍNH
 -- ----------------------------------------------------
 local function HandleMainAccount()
-    UpdateStatus("STATUS: ACC CHÍNH ĐANG HOẠT ĐỘNG", Color3.fromRGB(0, 255, 255))
+    CurrentActionText = "STATUS: ACC CHÍNH ĐANG HOẠT ĐỘNG"
+    UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 255))
+    SendOrUpdateStatusWebhook(CurrentActionText)
 
     -- 1. Check Haki
     if Config.NeedFarmHaki == true then
-        UpdateStatus("🔴 Cần Farm Haki Legend\n-> Bật Script Farm Haki...", Color3.fromRGB(255, 100, 100))
+        CurrentActionText = "🔴 Đang Farm Haki Legend..."
+        UpdateUI(CurrentActionText, Color3.fromRGB(255, 100, 100))
+        SendOrUpdateStatusWebhook(CurrentActionText)
         loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
         return
     end
@@ -174,14 +242,18 @@ local function HandleMainAccount()
     if Config.TargetBoss == "DoughKing" then
         currentCocoa = GetItemCount("Conjured Cocoa")
         if currentCocoa < Config.RequiredCocoa then
-            UpdateStatus("🔴 Thiếu Cacao (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ")\n-> Bật Script Farm Cacao...", Color3.fromRGB(255, 150, 0))
+            CurrentActionText = "🔴 Đang Farm Cacao (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ")..."
+            UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
+            SendOrUpdateStatusWebhook(CurrentActionText)
             loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
             return
         end
     end
 
-    -- 3. Mọi thứ OK -> Bật Soi Chén
-    UpdateStatus("🟢 Đủ điều kiện!\n-> Bật Farm Chén & Watcher Soi Chén...", Color3.fromRGB(0, 255, 0))
+    -- 3. Check Chén
+    CurrentActionText = "🟢 Đang Hop Server & Soi Chén Thánh..."
+    UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
+    SendOrUpdateStatusWebhook(CurrentActionText)
 
     task.spawn(function()
         loadstring(game:HttpGet(Config.Scripts.FarmChalice))()
@@ -198,7 +270,10 @@ local function HandleMainAccount()
             if (sweetChalice or godsChalice) and not hasFoundChalice then
                 hasFoundChalice = true
                 local chaliceName = sweetChalice and "Sweet Chalice" or "God's Chalice"
-                UpdateStatus("🎉 ĐÃ PHÁT HIỆN " .. string.upper(chaliceName) .. "!\n-> Đã bắn tín hiệu Webhook!", Color3.fromRGB(255, 215, 0))
+                CurrentActionText = "🎉 ĐÃ PHÁT HIỆN " .. string.upper(chaliceName) .. "!"
+                UpdateUI(CurrentActionText, Color3.fromRGB(255, 215, 0))
+                SendOrUpdateStatusWebhook(CurrentActionText)
+                
                 PushJobIdAndSendWebhook(chaliceName, currentCocoa)
                 break
             end
@@ -210,7 +285,7 @@ end
 -- LOGIC ACC PHỤ
 -- ----------------------------------------------------
 local function HandleAltAccount()
-    UpdateStatus("STATUS: ACC PHỤ ĐANG TREO NGẦM", Color3.fromRGB(200, 200, 200))
+    UpdateUI("STATUS: ACC PHỤ ĐANG TREO NGẦM", Color3.fromRGB(200, 200, 200))
 
     pcall(function()
         game:GetService("UserSettings").GameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
@@ -243,13 +318,13 @@ local function HandleAltAccount()
 
                 if targetJobId and targetJobId ~= true and targetJobId ~= "" then
                     if game.JobId ~= targetJobId then
-                        UpdateStatus("🚀 Phát hiện Server có Chén!\n-> Đang Auto-Join...", Color3.fromRGB(0, 255, 255))
+                        UpdateUI("🚀 Đã có Chén! Đang Auto-Join...", Color3.fromRGB(0, 255, 255))
                         pcall(function()
                             TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJobId, LocalPlayer)
                         end)
                         task.wait(5)
                     else
-                        UpdateStatus("✅ Đã vào đúng Server!\n-> Bật Script Đánh Boss!", Color3.fromRGB(0, 255, 0))
+                        UpdateUI("✅ Đã vào đúng Server! Bật Script Đánh Boss!", Color3.fromRGB(0, 255, 0))
                         local getBossRes = http_request({
                             Url = Config.UpstashURL .. "/get/TargetBoss",
                             Method = "GET",
@@ -266,7 +341,7 @@ local function HandleAltAccount()
                         break
                     end
                 else
-                    UpdateStatus("💤 Đang treo ngầm chờ Acc Chính tìm Chén...", Color3.fromRGB(180, 180, 180))
+                    UpdateUI("💤 Đang treo ngầm chờ Acc Chính...", Color3.fromRGB(180, 180, 180))
                 end
             end
         end
