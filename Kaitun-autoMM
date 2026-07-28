@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT 4: CONTROLLER TRUNG TÂM (AUTO CHECK BERRY -> FARM HAKI TỰ ĐỘNG)
+-- SCRIPT 4: CONTROLLER TRUNG TÂM (TÍCH HỢP HIỂN THỊ BERRY VÀO BẢNG LIVE STATUS)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -128,7 +128,7 @@ local function GetRedisTask()
 end
 
 -- ----------------------------------------------------
--- HÀM CẬP NHẬT WEBHOOK STATUS ĐỨNG YÊN (GIỜ VN +7)
+-- HÀM CẬP NHẬT WEBHOOK STATUS ĐỨNG YÊN (CÓ ĐẾM BERRY BÊN TRONG)
 -- ----------------------------------------------------
 local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" then return end
@@ -140,8 +140,21 @@ local function SendOrUpdateStatusWebhook(actionStatus)
         local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
                            (char and (char:FindFirstChild("Sweet Chalice") or char:FindFirstChild("God's Chalice")))
         
+        -- Lấy số lượng Berry nếu bật NeedFarmHaki
+        local berryText = ""
+        if Config.NeedFarmHaki == true then
+            local red   = GetItemCount("Red Cherry Berry")
+            local white = GetItemCount("White Cloud Berry")
+            local pink  = GetItemCount("Pink Pig Berry")
+            berryText = string.format("\n└ 🍒 `%d/15` | ☁️ `%d/10` | 🐷 `%d/15`", red, white, pink)
+        end
+
         local vnTime = os.date("*t", os.time() + 25200)
         local timeString = string.format("%02d/%02d/%04d %02d:%02d:%02d (VN)", vnTime.day, vnTime.month, vnTime.year, vnTime.hour, vnTime.min, vnTime.sec)
+
+        local inventoryStatus = "🍫 **Cacao:** `" .. tostring(currentCocoa) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n" ..
+                                "🎨 **Haki:** `" .. (Config.NeedFarmHaki and "Đang Farm" or "Đã Đủ/Tắt") .. "`" .. berryText .. "\n" ..
+                                "🏆 **Chén:** `" .. (hasChalice and "ĐÃ CÓ CHÉN!" or "Chưa có") .. "`"
 
         local payload = {
             username = "Acc Status Tracker",
@@ -154,7 +167,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
                     { name = "👤 Tên Tài Khoản", value = "```" .. LocalPlayer.Name .. "```", inline = true },
                     { name = "🎯 Boss Mục Tiêu", value = "```" .. tostring(Config.TargetBoss) .. "```", inline = true },
                     { name = "📌 Hành Động Hiện Tại", value = "```" .. actionStatus .. "```", inline = false },
-                    { name = "📊 Trạng Thái Túi Đồ", value = "🍫 **Cacao:** `" .. tostring(currentCocoa) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🎨 **Haki:** `" .. (Config.NeedFarmHaki and "Đang Farm Haki" or "Bỏ qua Haki") .. "`\n🏆 **Chén:** `" .. (hasChalice and "ĐÃ CÓ CHÉN!" or "Chưa có") .. "`", inline = false },
+                    { name = "📊 Trạng Thái Túi Đồ", value = inventoryStatus, inline = false },
                     { name = "🌐 JobId Server", value = "```" .. game.JobId .. "```", inline = false }
                 },
                 footer = {
@@ -279,15 +292,13 @@ local function HandleMainAccount()
         print("⚡ [FAST RECOVER] Đọc Task từ Redis: " .. savedTask)
 
         if savedTask == "FarmHaki" and Config.NeedFarmHaki == true then
-            CurrentActionText = "⚡ [1s] Check Berry & Farm Haki..."
+            CurrentActionText = "⚡ [1s] Đang Farm Haki..."
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 170, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
-            -- Chạy CheckBerry trước để bắn Webhook
-            pcall(function() loadstring(game:HttpGet(Config.Scripts.CheckBerry))() end)
-            task.wait(1)
-            -- Sau đó chạy ngay FarmHaki
-            loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
+            if Config.Scripts.FarmHaki and Config.Scripts.FarmHaki ~= "" then
+                loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
+            end
             return
         elseif savedTask == "FarmCocoa" then
             CurrentActionText = "⚡ [1s] Đang chạy Farm Cacao..."
@@ -308,22 +319,13 @@ local function HandleMainAccount()
         end
     end
 
-    -- 3. CHẠY SONG SONG CHECK BERRY VÀ FARM HAKI KHI NEEDFARMHAKI = TRUE
+    -- 3. BẬT FARM HAKI KHI NEEDFARMHAKI = TRUE
     if Config.NeedFarmHaki == true then
-        CurrentActionText = "🫐 Đang Check Berry & Chạy Farm Haki..."
+        CurrentActionText = "🎨 Đang Farm Haki..."
         UpdateUI(CurrentActionText, Color3.fromRGB(255, 170, 0))
         SendOrUpdateStatusWebhook(CurrentActionText)
 
         SetRedisTask("FarmHaki")
-        
-        -- 1. Bật Check Berry để kiểm tra & bắn thông báo Discord
-        if Config.Scripts.CheckBerry and Config.Scripts.CheckBerry ~= "" then
-            pcall(function() loadstring(game:HttpGet(Config.Scripts.CheckBerry))() end)
-        end
-        
-        task.wait(1)
-        
-        -- 2. Bật thẳng Script Farm Haki
         if Config.Scripts.FarmHaki and Config.Scripts.FarmHaki ~= "" then
             loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
         end
