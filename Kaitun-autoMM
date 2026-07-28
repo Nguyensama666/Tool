@@ -1,8 +1,6 @@
 -- ====================================================
--- SCRIPT 4: CONTROLLER TRUNG TÂM (CHẠY FARM HAKI TỨC THÌ + BẮN WEBHOOK NGẦM)
+-- SCRIPT 4: CONTROLLER TRUNG TÂM (FIX WEBHOOK ĐỨNG YÊN & GIỜ VN +7)
 -- ====================================================
-if not game:IsLoaded() then game.Loaded:Wait() end
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
@@ -13,20 +11,13 @@ local LocalPlayer = Players.LocalPlayer
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
 
 -- 1. TẢI CONFIG CHÍNH TỪ GITHUB
-local successConfig, Config = pcall(function()
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
-end)
-
-if not successConfig or not Config then
-    warn("[CRITICAL ERROR] Không thể nạp File Config từ GitHub!")
-    return
-end
+local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
 
 local StatusMessageId = nil
 local CurrentActionText = "Đang khởi động..."
 
 -- ----------------------------------------------------
--- GIAO DIỆN BẢNG STATUS TRÊN MÀN HÌNH GAME
+-- GIAO DIỆN BẢNG STATUS TRÊN MÀN HÌNH ĐIỆN THOẠI
 -- ----------------------------------------------------
 local function CreateStatusUI()
     local sg = CoreGui:FindFirstChild("KaitunStatusUI")
@@ -65,7 +56,7 @@ local function CreateStatusUI()
     statusText.Name = "StatusLabel"
     statusText.Size = UDim2.new(1, -20, 0, 35)
     statusText.Position = UDim2.new(0, 10, 0, 30)
-    statusText.Text = "⚡ Đang khởi động siêu tốc..."
+    statusText.Text = "Đang khởi động hệ thống..."
     statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
     statusText.TextSize = 12
     statusText.Font = Enum.Font.SourceSans
@@ -81,19 +72,23 @@ end
 
 local UpdateUI = CreateStatusUI()
 
+-- 2. TỰ ĐỘNG REJOIN KHI BỊ DISCONNECT
+CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == "ErrorPrompt" then
+        UpdateUI("⚠️ Bị ngắt kết nối! Rejoin sau 3s...", Color3.fromRGB(255, 0, 0))
+        task.wait(3)
+        TeleportService:Teleport(game.PlaceId, LocalPlayer)
+    end
+end)
+
 -- ----------------------------------------------------
--- HÀM LẤY DỮ LIỆU TÚI ĐỒ (KHÔNG GÂY TREO CODE)
+-- HÀM BỔ TRỢ GET INVENTORY
 -- ----------------------------------------------------
 local function GetInventory()
-    local result = {}
-    pcall(function()
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        local commF = remotes and remotes:FindFirstChild("CommF_")
-        if commF then
-            result = commF:InvokeServer("getInventory")
-        end
+    local success, result = pcall(function()
+        return ReplicatedStorage.Remotes.CommF_:InvokeServer("getInventory")
     end)
-    return type(result) == "table" and result or {}
+    return success and result or {}
 end
 
 local function GetItemCount(itemName)
@@ -103,93 +98,71 @@ local function GetItemCount(itemName)
     return 0
 end
 
-local function SetRedisTask(taskName)
-    if not Config.UpstashURL or Config.UpstashURL == "" then return end
-    task.spawn(function()
-        pcall(function()
-            http_request({
-                Url = Config.UpstashURL .. "/set/CurrentTask/" .. taskName .. "?EX=300",
-                Method = "GET",
-                Headers = { ["Authorization"] = "Bearer " .. (Config.UpstashToken or "") }
-            })
-        end)
-    end)
-end
-
 -- ----------------------------------------------------
--- HÀM CẬP NHẬT WEBHOOK STATUS ĐỨNG YÊN (CHẠY NGẦM)
+-- HÀM CẬP NHẬT WEBHOOK STATUS ĐỨNG YÊN (GIỜ VIỆT NAM +7)
 -- ----------------------------------------------------
 local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" then return end
 
-    task.spawn(function()
-        local currentCocoa = GetItemCount("Conjured Cocoa")
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        local char = LocalPlayer.Character
-        local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
-                           (char and (char:FindFirstChild("Sweet Chalice") or char:FindFirstChild("God's Chalice")))
-        
-        local berryText = ""
-        if Config.NeedFarmHaki == true then
-            local red   = GetItemCount("Red Cherry Berry")
-            local white = GetItemCount("White Cloud Berry")
-            local pink  = GetItemCount("Pink Pig Berry")
-            berryText = string.format("\n└ 🍒 `%d/15` | ☁️ `%d/10` | 🐷 `%d/15`", red, white, pink)
-        end
+    local currentCocoa = GetItemCount("Conjured Cocoa")
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local char = LocalPlayer.Character
+    local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
+                       (char and (char:FindFirstChild("Sweet Chalice") or char:FindFirstChild("God's Chalice")))
+    
+    -- Lấy giờ Việt Nam (GMT+7): os.time() + 7 * 3600 giây
+    local vnTime = os.date("*t", os.time() + 25200)
+    local timeString = string.format("%02d/%02d/%04d %02d:%02d:%02d (VN)", vnTime.day, vnTime.month, vnTime.year, vnTime.hour, vnTime.min, vnTime.sec)
 
-        local vnTime = os.date("*t", os.time() + 25200)
-        local timeString = string.format("%02d/%02d/%04d %02d:%02d:%02d (VN)", vnTime.day, vnTime.month, vnTime.year, vnTime.hour, vnTime.min, vnTime.sec)
+    local payload = {
+        username = "Acc Status Tracker",
+        avatar_url = "https://i.imgur.com/8N4X0ZT.png",
+        embeds = {{
+            title = "🟢 TRẠNG THÁI HOẠT ĐỘNG ACC CHÍNH",
+            description = "✨ **Hệ thống đang cập nhật Trạng thái Trực tiếp (Live Status)...**",
+            color = 0x00FF00,
+            fields = {
+                { name = "👤 Tên Tài Khoản", value = "```" .. LocalPlayer.Name .. "```", inline = true },
+                { name = "🎯 Boss Mục Tiêu", value = "```" .. tostring(Config.TargetBoss) .. "```", inline = true },
+                { name = "📌 Hành Động Hiện Tại", value = "```" .. actionStatus .. "```", inline = false },
+                { name = "📊 Trạng Thái Túi Đồ", value = "🍫 **Cacao:** `" .. tostring(currentCocoa) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🎨 **Haki:** `" .. (Config.NeedFarmHaki and "Chưa xong" or "Đã đủ") .. "`\n🏆 **Chén:** `" .. (hasChalice and "ĐÃ CÓ CHÉN!" or "Chưa có") .. "`", inline = false },
+                { name = "🌐 JobId Server", value = "```" .. game.JobId .. "```", inline = false }
+            },
+            footer = {
+                text = "🤖 Live Status • Cập nhật lúc " .. timeString,
+                icon_url = "https://i.imgur.com/8N4X0ZT.png"
+            }
+        }}
+    }
 
-        local inventoryStatus = "🍫 **Cacao:** `" .. tostring(currentCocoa) .. "/" .. tostring(Config.RequiredCocoa or 10) .. "`\n" ..
-                                "🎨 **Haki:** `" .. (Config.NeedFarmHaki and "Đang Farm" or "Đã Đủ/Tắt") .. "`" .. berryText .. "\n" ..
-                                "🏆 **Chén:** `" .. (hasChalice and "ĐÃ CÓ CHÉN!" or "Chưa có") .. "`"
-
-        local payload = {
-            username = "Acc Status Tracker",
-            avatar_url = "https://i.imgur.com/8N4X0ZT.png",
-            embeds = {{
-                title = "🟢 TRẠNG THÁI HOẠT ĐỘNG ACC CHÍNH",
-                description = "✨ **Hệ thống đang cập nhật Trạng thái Trực tiếp (Live Status)...**",
-                color = 0x00FF00,
-                fields = {
-                    { name = "👤 Tên Tài Khoản", value = "```" .. LocalPlayer.Name .. "```", inline = true },
-                    { name = "🎯 Boss Mục Tiêu", value = "```" .. tostring(Config.TargetBoss or "N/A") .. "```", inline = true },
-                    { name = "📌 Hành Động Hiện Tại", value = "```" .. actionStatus .. "```", inline = false },
-                    { name = "📊 Trạng Thái Túi Đồ", value = inventoryStatus, inline = false },
-                    { name = "🌐 JobId Server", value = "```" .. game.JobId .. "```", inline = false }
-                },
-                footer = {
-                    text = "🤖 Live Status • Cập nhật lúc " .. timeString,
-                    icon_url = "https://i.imgur.com/8N4X0ZT.png"
-                }
-            }}
-        }
-
-        pcall(function()
-            if not StatusMessageId then
-                local res = http_request({
-                    Url = Config.StatusWebhook .. "?wait=true",
-                    Method = "POST",
-                    Headers = {["Content-Type"] = "application/json"},
-                    Body = HttpService:JSONEncode(payload)
-                })
-                if res and res.Body then
-                    local data = HttpService:JSONDecode(res.Body)
-                    if data and data.id then StatusMessageId = tostring(data.id) end
+    pcall(function()
+        if not StatusMessageId then
+            -- Gửi POST lần đầu để lấy Message ID chính xác từ Discord trả về
+            local res = http_request({
+                Url = Config.StatusWebhook .. "?wait=true",
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+            if res and res.Body then
+                local data = HttpService:JSONDecode(res.Body)
+                if data and data.id then 
+                    StatusMessageId = tostring(data.id) 
                 end
-            else
-                http_request({
-                    Url = Config.StatusWebhook .. "/messages/" .. StatusMessageId,
-                    Method = "PATCH",
-                    Headers = {["Content-Type"] = "application/json"},
-                    Body = HttpService:JSONEncode(payload)
-                })
             end
-        end)
+        else
+            -- Các lần sau dùng PATCH để chỉnh sửa đúng cái tin nhắn cũ (giúp bảng đứng yên một chỗ)
+            http_request({
+                Url = Config.StatusWebhook .. "/messages/" .. StatusMessageId,
+                Method = "PATCH",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        end
     end)
 end
 
--- Vòng lặp cập nhật Webhook Status mỗi 15 giây
+-- Vòng lặp cập nhật Webhook Status đứng yên mỗi 15 giây
 task.spawn(function()
     while task.wait(15) do
         SendOrUpdateStatusWebhook(CurrentActionText)
@@ -197,60 +170,195 @@ task.spawn(function()
 end)
 
 -- ----------------------------------------------------
+-- HÀM BẮN WEBHOOK BÁO CHÉN THÁNH
+-- ----------------------------------------------------
+local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    local bossType = Config.TargetBoss or "RipIndra"
+    local vnTime = os.date("*t", os.time() + 25200)
+    local timeString = string.format("%02d/%02d/%04d %02d:%02d:%02d (VN)", vnTime.day, vnTime.month, vnTime.year, vnTime.hour, vnTime.min, vnTime.sec)
+
+    pcall(function()
+        http_request({
+            Url = Config.UpstashURL .. "/set/TargetJobId/" .. jobId .. "?EX=300",
+            Method = "GET",
+            Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+        })
+        http_request({
+            Url = Config.UpstashURL .. "/set/TargetBoss/" .. bossType .. "?EX=300",
+            Method = "GET",
+            Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+        })
+    end)
+
+    local teleportCode = string.format("game:GetService(\"TeleportService\"):TeleportToPlaceInstance(%d, \"%s\", game.Players.LocalPlayer)", placeId, jobId)
+    local isDough = (bossType == "DoughKing")
+
+    if Config.DiscordWebhook and Config.DiscordWebhook ~= "" then
+        local payload = {
+            username = "System Scout",
+            avatar_url = "https://i.imgur.com/8N4X0ZT.png",
+            embeds = {{
+                title = "🔥 ĐÃ PHÁT HIỆN " .. string.upper(chaliceType) .. "!",
+                description = "✨ **Acc Chính đã sẵn sàng!** Acc Phụ đang tiến hành Auto-Join...",
+                color = isDough and 0xFFA500 or 0xFF0000,
+                fields = {
+                    { name = "👤 Tài Khoản Chính", value = "```" .. LocalPlayer.Name .. "```", inline = true },
+                    { name = "🎯 Boss Mục Tiêu", value = "```" .. bossType .. "```", inline = true },
+                    { name = "📊 Trạng Thái Túi Đồ", value = isDough and ("🍫 **Cacao:** `" .. tostring(cocoaCount) .. "/" .. tostring(Config.RequiredCocoa) .. "`\n🏆 **Chén:** `" .. chaliceType .. "`") or ("🏆 **Chén:** `" .. chaliceType .. "`\n🎨 **Haki:** `Đã Hoàn Tất`"), inline = false },
+                    { name = "📌 JobId Server", value = "```" .. jobId .. "```", inline = false },
+                    { name = "🚀 Mã Teleport Cho Acc Phụ", value = "```lua\n" .. teleportCode .. "\n```", inline = false }
+                },
+                thumbnail = {
+                    url = isDough and "https://i.imgur.com/3Z8q0m1.png" or "https://i.imgur.com/YX0m5aL.png"
+                },
+                footer = {
+                    text = "🤖 Auto System Scout • " .. timeString,
+                    icon_url = "https://i.imgur.com/8N4X0ZT.png"
+                }
+            }}
+        }
+
+        pcall(function()
+            http_request({
+                Url = Config.DiscordWebhook,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        end)
+    end
+end
+
+-- ----------------------------------------------------
 -- LOGIC ACC CHÍNH
 -- ----------------------------------------------------
 local function HandleMainAccount()
     CurrentActionText = "STATUS: ACC CHÍNH ĐANG HOẠT ĐỘNG"
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 255))
+    SendOrUpdateStatusWebhook(CurrentActionText)
 
-    -- 1. BẬT FARM HAKI TRƯỚC (NẾU NEEDFARMHAKI = TRUE)
+    -- 1. BẬT SCRIPT CHECK BERRY KHI NEEDFARMHAKI = TRUE
     if Config.NeedFarmHaki == true then
-        CurrentActionText = "🎨 Đang Farm Haki Legend..."
+        CurrentActionText = "🫐 Đang kiểm tra Berry Craft Haki..."
         UpdateUI(CurrentActionText, Color3.fromRGB(255, 170, 0))
-        SetRedisTask("FarmHaki")
+        SendOrUpdateStatusWebhook(CurrentActionText)
 
-        -- KÍCH HOẠT SCRIPT FARM HAKI NGAY LẬP TỨC
-        task.spawn(function()
-            if Config.Scripts and Config.Scripts.FarmHaki and Config.Scripts.FarmHaki ~= "" then
-                pcall(function() loadstring(game:HttpGet(Config.Scripts.FarmHaki))() end)
-            end
-        end)
-
-        -- CHẠY NGẦM BẮN WEBHOOK VÀ CHECK BERRY (KHÔNG LÀM CHẬM GAME)
-        task.spawn(function()
-            SendOrUpdateStatusWebhook(CurrentActionText)
-            if Config.Scripts and Config.Scripts.CheckBerry and Config.Scripts.CheckBerry ~= "" then
-                pcall(function() loadstring(game:HttpGet(Config.Scripts.CheckBerry))() end)
-            end
-        end)
+        loadstring(game:HttpGet(Config.Scripts.CheckBerry))()
         return
+    else
+        print("[STATUS] 🟢 NeedFarmHaki = false -> Bỏ qua Check Berry & Haki!")
     end
 
-    -- 2. CHECK CACAO (NẾU NEEDFARMHAKI = FALSE)
-    local currentCocoa = GetItemCount("Conjured Cocoa")
-    if Config.TargetBoss == "DoughKing" and currentCocoa < (Config.RequiredCocoa or 10) then
-        CurrentActionText = "🔴 Thiếu Cacao (" .. currentCocoa .. "/" .. (Config.RequiredCocoa or 10) .. ")..."
-        UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
-        
-        SetRedisTask("FarmCocoa")
-        task.spawn(function()
+    -- 2. CHECK CACAO (CHỈ CHẠY KHI NEEDFARMHAKI = FALSE)
+    local currentCocoa = 0
+    if Config.TargetBoss == "DoughKing" then
+        currentCocoa = GetItemCount("Conjured Cocoa")
+        if currentCocoa < Config.RequiredCocoa then
+            CurrentActionText = "🔴 Thiếu Cacao (" .. currentCocoa .. "/" .. Config.RequiredCocoa .. ")\n-> Bật Script Farm Cacao..."
+            UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
-            if Config.Scripts and Config.Scripts.FarmCocoa then
-                pcall(function() loadstring(game:HttpGet(Config.Scripts.FarmCocoa))() end)
-            end
-        end)
-        return
+            
+            loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
+            return
+        end
     end
 
-    -- 3. SOI CHÉN
-    CurrentActionText = "🟢 Đang Hop Server & Soi Chén..."
+    -- 3. ĐỦ ĐIỀU KIỆN -> BẬT FARM CHÉN & WATCHER
+    CurrentActionText = "🟢 Đang Hop Server & Soi Chén Thánh..."
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
-    SetRedisTask("FarmChalice")
+    SendOrUpdateStatusWebhook(CurrentActionText)
 
     task.spawn(function()
-        SendOrUpdateStatusWebhook(CurrentActionText)
-        if Config.Scripts and Config.Scripts.FarmChalice then
-            pcall(function() loadstring(game:HttpGet(Config.Scripts.FarmChalice))() end)
+        loadstring(game:HttpGet(Config.Scripts.FarmChalice))()
+    end)
+
+    task.spawn(function()
+        local hasFoundChalice = false
+        while task.wait(2) do
+            local backpack = LocalPlayer:FindFirstChild("Backpack")
+            local char = LocalPlayer.Character
+            local sweetChalice = (backpack and backpack:FindFirstChild("Sweet Chalice")) or (char and char:FindFirstChild("Sweet Chalice"))
+            local godsChalice = (backpack and backpack:FindFirstChild("God's Chalice")) or (char and char:FindFirstChild("God's Chalice"))
+
+            if (sweetChalice or godsChalice) and not hasFoundChalice then
+                hasFoundChalice = true
+                local chaliceName = sweetChalice and "Sweet Chalice" or "God's Chalice"
+                CurrentActionText = "🎉 ĐÃ PHÁT HIỆN " .. string.upper(chaliceName) .. "!"
+                UpdateUI(CurrentActionText, Color3.fromRGB(255, 215, 0))
+                SendOrUpdateStatusWebhook(CurrentActionText)
+                
+                PushJobIdAndSendWebhook(chaliceName, currentCocoa)
+                break
+            end
+        end
+    end)
+end
+
+-- ----------------------------------------------------
+-- LOGIC ACC PHỤ
+-- ----------------------------------------------------
+local function HandleAltAccount()
+    UpdateUI("STATUS: ACC PHỤ ĐANG TREO NGẦM", Color3.fromRGB(200, 200, 200))
+
+    pcall(function()
+        game:GetService("UserSettings").GameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+        settings().Rendering.QualityLevel = 1
+    end)
+
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet(Config.Scripts.AntiAFK))()
+        end)
+    end)
+
+    task.spawn(function()
+        while task.wait(3) do
+            local res = pcall(function()
+                return http_request({
+                    Url = Config.UpstashURL .. "/get/TargetJobId",
+                    Method = "GET",
+                    Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+                })
+            end) and http_request({
+                Url = Config.UpstashURL .. "/get/TargetJobId",
+                Method = "GET",
+                Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+            })
+
+            if res and res.Body then
+                local dataDecoded = HttpService:JSONDecode(res.Body)
+                local targetJobId = dataDecoded.result
+
+                if targetJobId and targetJobId ~= true and targetJobId ~= "" then
+                    if game.JobId ~= targetJobId then
+                        UpdateUI("🚀 Đã có Chén! Đang Auto-Join...", Color3.fromRGB(0, 255, 255))
+                        pcall(function()
+                            TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJobId, LocalPlayer)
+                        end)
+                        task.wait(5)
+                    else
+                        UpdateUI("✅ Đã vào đúng Server! Bật Script Đánh Boss!", Color3.fromRGB(0, 255, 0))
+                        local getBossRes = http_request({
+                            Url = Config.UpstashURL .. "/get/TargetBoss",
+                            Method = "GET",
+                            Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+                        })
+                        local bossData = HttpService:JSONDecode(getBossRes.Body)
+                        local targetBoss = bossData.result or Config.TargetBoss
+
+                        if targetBoss == "DoughKing" then
+                            loadstring(game:HttpGet(Config.Scripts.FightDough))()
+                        else
+                            loadstring(game:HttpGet(Config.Scripts.FightIndra))()
+                        end
+                        break
+                    end
+                else
+                    UpdateUI("💤 Đang treo ngầm chờ Acc Chính...", Color3.fromRGB(180, 180, 180))
+                end
+            end
         end
     end)
 end
@@ -261,5 +369,5 @@ end
 if LocalPlayer.Name == Config.MainAccountName then
     HandleMainAccount()
 else
-    UpdateUI("STATUS: ACC PHỤ ĐANG TREO NGẦM", Color3.fromRGB(200, 200, 200))
+    HandleAltAccount()
 end
