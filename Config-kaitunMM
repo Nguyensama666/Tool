@@ -1,17 +1,22 @@
 return {
     -- 1. CẤU HĨNH TÀI KHOẢN CHÍNH
-    MainAccountName = "TenAccChinhCuaBan", -- Điền đúng Username Acc Chính của bạn
+    MainAccountName = " jgtjcjkibd80134", -- Điền đúng Username Acc Chính của bạn
     
-    -- 2. CẤU HĨNH MỤC TIÊU FARM
-    TargetBoss = "RipIndra",              -- "DoughKing" hoặc "RipIndra"
-    RequiredCocoa = 10,                   -- Số Cacao cần có nếu chọn DoughKing
+    -- 2. CẤU HĨNH MỤC TIÊU FARM & HAKI
+    TargetBoss    = "RipIndra",           -- "DoughKing" hoặc "RipIndra"
+    RequiredCocoa = 10,                    -- Số Cacao cần có nếu chọn DoughKing
     
+    -- CÔNG TẮC HAKI:
+    -- Bật 'true'  nếu acc CHƯA ĐỦ 3 màu Haki Legend (Script sẽ đi farm Haki)
+    -- Đổi 'false' khi acc ĐÃ ĐỦ 3 màu Haki Legend (Script bỏ qua bước này hoàn toàn)
+    NeedFarmHaki  = true,                 
+
     -- 3. CẤU HĨNH DATABASE REDIS & DISCORD WEBHOOK
     UpstashURL     = "https://accurate-hyena-88788.upstash.io",
     UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
     DiscordWebhook = "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE",
     
-    -- 4. DANH SÁCH LINK SCRIPT TRÊN GITHUB CỦA BẠN
+    -- 4. LINK SCRIPT TRÊN GITHUB CỦA BẠN
     Scripts = {
         FarmChalice = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20ch%C3%A9n%20th%C3%A1nh%20safe",
         FarmCocoa   = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20cacao",
