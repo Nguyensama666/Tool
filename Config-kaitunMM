@@ -1,20 +1,18 @@
 return {
-    -- 1. CẤU HĨNH TÀI KHOẢN CHÍNH (Đã xóa khoảng trắng thừa)
-    MainAccountName = "uwrnrw", -- Sửa đúng Username Acc Chính
-    
-    -- 2. CẤU HĨNH MỤC TIÊU FARM & HAKI
-    TargetBoss    = "RipIndra",           -- "DoughKing" hoặc "RipIndra"
-    RequiredCocoa = 10,                    -- Số Cacao cần có nếu chọn DoughKing
-    
-    -- CÔNG TẮC HAKI:
-    NeedFarmHaki  = true,                 
+    MainAccountName = "uwrnrw",
+    TargetBoss      = "RipIndra",
+    RequiredCocoa   = 10,
+    NeedFarmHaki    = true,                 
 
-    -- 3. CẤU HĨNH DATABASE REDIS & DISCORD WEBHOOK
     UpstashURL     = "https://accurate-hyena-88788.upstash.io",
     UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
+    
+    -- Webhook 1: Bắn tin nhắn BÁO CHÉN khi nhặt được Chén
     DiscordWebhook = "https://discord.com/api/webhooks/1531539189991080096/tiE2wTBP1GWA-NGCO8L3tXBkmKre8WTA7dY9Xzz7nzq9DOBPdTCUZXXn3o2M6nTftWaP",
     
-    -- 4. LINK SCRIPT TRÊN GITHUB CỦA BẠN
+    -- Webhook 2: Bảng STATUS ĐỨNG YÊN liên tục cập nhật trạng thái Acc (ĐIỀN LINK WEBHOOK MỚI VÀO ĐÂY)
+    StatusWebhook  = "https://discord.com/api/webhooks/1531676116329173036/7BXj2FCVCxqAuXU4twFgEVLO7ojU9k9UOfnQLW-G951Jod5BIcodFcrIw1TYZlOnGtc7",
+    
     Scripts = {
         FarmChalice = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20ch%C3%A9n%20th%C3%A1nh%20safe",
         FarmCocoa   = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20cacao",
