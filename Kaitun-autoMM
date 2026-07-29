@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (BẢN FIX TRIỆT ĐỂ NIL VALUE & CACAO)
+-- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM CHECK CACAO MULTI-SCAN)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -115,40 +115,67 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM LẤY ĐỒ CHUẨN XÁC 100% (FIX CHECK CACAO)
+-- HÀM CHECK CACAO ĐA TẦNG (MULTI-LAYER INVENTORY SCAN)
 -- ----------------------------------------------------
-local function SafeGetItemCount(itemName)
+local function SafeGetItemCount(targetName)
     local count = 0
-    local bindable = Instance.new("BindableEvent")
+    
+    -- [TẦNG 1]: QUÉT TỪ SERVER REMOTE COMMF
+    pcall(function()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        local commF = remotes and remotes:FindFirstChild("CommF_")
+        if commF then
+            local inv = commF:InvokeServer("getInventory")
+            if type(inv) == "table" then
+                for _, item in ipairs(inv) do
+                    if type(item) == "table" then
+                        local name = tostring(item.Name or item.NameItem or item.ItemName or "")
+                        if name == "Cocoa" or name == "Conjured Cocoa" or string.find(name, "Cocoa") then
+                            count = tonumber(item.Count or item.Amount or item.Value or item.Quantity) or 1
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
 
-    task.spawn(function()
+    -- [TẦNG 2]: QUÉT TRỰC TIẾP BACKPACK & CHARACTER (NẾU REMOTE TẦNG 1 BỊ MISS)
+    if count == 0 then
         pcall(function()
-            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-            local commF = remotes and remotes:FindFirstChild("CommF_")
-            if commF then
-                local inv = commF:InvokeServer("getInventory")
-                if type(inv) == "table" then
-                    for _, item in ipairs(inv) do
-                        if type(item) == "table" then
-                            local name = item.Name or item.NameItem or ""
-                            if name == itemName or name == "Conjured Cocoa" or name == "Cocoa" then
-                                count = item.Count or item.Amount or item.Value or 1
-                                break
-                            end
+            local searchLocations = {LocalPlayer:FindFirstChild("Backpack"), LocalPlayer.Character}
+            for _, loc in ipairs(searchLocations) do
+                if loc then
+                    for _, child in ipairs(loc:GetChildren()) do
+                        if string.find(child.Name, "Cocoa") or string.find(child.Name, "Conjured") then
+                            local val = child:FindFirstChild("Count") or child:FindFirstChild("Value") or child:FindFirstChild("Amount")
+                            count = val and tonumber(val.Value) or 1
+                            break
                         end
                     end
                 end
             end
         end)
-        bindable:Fire()
-    end)
+    end
 
-    task.delay(2.5, function()
-        bindable:Fire()
-    end)
+    -- [TẦNG 3]: QUÉT FOLDER DATA CỦA PLAYER
+    if count == 0 then
+        pcall(function()
+            local playerData = LocalPlayer:FindFirstChild("Data") or LocalPlayer:FindFirstChild("DataFolder")
+            if playerData then
+                local inventoryFolder = playerData:FindFirstChild("Inventory") or playerData:FindFirstChild("Materials")
+                if inventoryFolder then
+                    for _, item in ipairs(inventoryFolder:GetChildren()) do
+                        if string.find(item.Name, "Cocoa") then
+                            count = tonumber(item.Value) or 1
+                            break
+                        end
+                    end
+                end
+            end
+        end)
+    end
 
-    bindable.Event:Wait()
-    bindable:Destroy()
     return count
 end
 
