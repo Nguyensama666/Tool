@@ -1,8 +1,9 @@
 return {
     MainAccountName = "uwrnrw",
+    BananaKey       = "8f8561aabaf1d632b3f8f1f6", -- 👈 ĐIỀN KEY BANANAHUB TẠI ĐÂY
     TargetBoss      = "DoughKing",
     RequiredCocoa   = 30,
-    NeedFarmHaki    = false,                 
+    NeedFarmHaki    = false,                  
 
     UpstashURL     = "https://accurate-hyena-88788.upstash.io",
     UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
@@ -10,7 +11,7 @@ return {
     -- Webhook 1: Bắn tin nhắn BÁO CHÉN khi nhặt được Chén
     DiscordWebhook = "https://discord.com/api/webhooks/1531539189991080096/tiE2wTBP1GWA-NGCO8L3tXBkmKre8WTA7dY9Xzz7nzq9DOBPdTCUZXXn3o2M6nTftWaP",
     
-    -- Webhook 2: Bảng STATUS ĐỨNG YÊN liên tục cập nhật trạng thái Acc (ĐIỀN LINK WEBHOOK MỚI VÀO ĐÂY)
+    -- Webhook 2: Bảng STATUS ĐỨNG YÊN liên tục cập nhật trạng thái Acc
     StatusWebhook  = "https://discord.com/api/webhooks/1531676116329173036/7BXj2FCVCxqAuXU4twFgEVLO7ojU9k9UOfnQLW-G951Jod5BIcodFcrIw1TYZlOnGtc7",
     
     Scripts = {
