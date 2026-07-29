@@ -1,22 +1,45 @@
-return {
-    MainAccountName = "uwrnrw",
-    BananaKey       = "8f8561aabaf1d632b3f8f1f6", -- 👈 Điền Key BananaHub tại đây
-    TargetBoss      = "RipIndra", Dough King or RipIndra
-    RequiredCocoa   = 20,
-    NeedFarmHaki    = false,                  
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
 
-    UpstashURL     = "https://accurate-hyena-88788.upstash.io",
-    UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
-    
-    DiscordWebhook = "https://discord.com/api/webhooks/1531539189991080096/tiE2wTBP1GWA-NGCO8L3tXBkmKre8WTA7dY9Xzz7nzq9DOBPdTCUZXXn3o2M6nTftWaP",
-    StatusWebhook  = "https://discord.com/api/webhooks/1531676116329173036/7BXj2FCVCxqAuXU4twFgEVLO7ojU9k9UOfnQLW-G951Jod5BIcodFcrIw1TYZlOnGtc7",
-    
-    Scripts = {
-        FarmChalice = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20ch%C3%A9n%20th%C3%A1nh%20safe",
-        FarmCocoa   = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20cacao",
-        FarmHaki    = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20haki",
-        FightDough  = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/%C4%90%C3%A1nh%20doughking",
-        FightIndra  = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/%C4%90%C3%A1nh%20ripindra",
-        AntiAFK     = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/anti%20afk"
-    }
-}
+local function safeCall(fn, ...)
+    if typeof(fn) == "function" then
+        return pcall(fn, ...)
+    end
+    return false, "Value is nil or not a function"
+end
+
+local Remotes = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage:WaitForChild("Remotes", 5)
+
+local Helper = {}
+Helper.__index = Helper
+
+function Helper.GetCommF()
+    if Remotes then
+        local comm = Remotes:FindFirstChild("CommF_")
+        if comm then return comm end
+    end
+    return ReplicatedStorage:FindFirstChild("CommF_", true)
+end
+
+function Helper.Invoke(...)
+    local comm = Helper.GetCommF()
+    if comm and typeof(comm.InvokeServer) == "function" then
+        local success, result = safeCall(function(...)
+            return comm:InvokeServer(...)
+        end, ...)
+        if success then return result end
+    end
+    return nil
+end
+
+function Helper.Fire(...)
+    local comm = Helper.GetCommF()
+    if comm and typeof(comm.FireServer) == "function" then
+        safeCall(function(...)
+            comm:FireServer(...)
+        end, ...)
+    end
+end
+
+return Helper
