@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (FIX LỖI NATIVE & CÚ PHÁP)
+-- SCRIPT: CONTROLLER TRUNG TÂM (BẢN FIX TRIỆT ĐỂ NIL VALUE & CACAO)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -11,6 +11,26 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
+
+-- HÀM LOAD SCRIPT AN TOÀN (CHỐNG LỖI NIL VALUE)
+local function SafeLoadScript(url)
+    if not url or url == "" then return end
+    task.spawn(function()
+        local success, code = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if success and code then
+            local func, err = loadstring(code)
+            if func then
+                func()
+            else
+                warn("❌ Lỗi cú pháp trong Script Con (" .. tostring(url) .. "):", err)
+            end
+        else
+            warn("❌ Không thể tải Script từ URL:", tostring(url))
+        end
+    end)
+end
 
 -- 1. LOAD CONFIG TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
@@ -95,7 +115,7 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM LẤY ĐỒ CHUẨN XÁC (SAFE BINDABLE EVENT)
+-- HÀM LẤY ĐỒ CHUẨN XÁC 100% (FIX CHECK CACAO)
 -- ----------------------------------------------------
 local function SafeGetItemCount(itemName)
     local count = 0
@@ -277,7 +297,7 @@ local function HandleMainAccount()
         CurrentActionText = "🔴 Đang Farm Haki Legend..."
         UpdateUI(CurrentActionText, Color3.fromRGB(255, 100, 100))
         SendOrUpdateStatusWebhook(CurrentActionText)
-        loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
+        SafeLoadScript(Config.Scripts.FarmHaki)
         return
     end
 
@@ -291,7 +311,7 @@ local function HandleMainAccount()
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
-            loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
+            SafeLoadScript(Config.Scripts.FarmCocoa)
             return
         end
     end
@@ -301,9 +321,7 @@ local function HandleMainAccount()
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
     SendOrUpdateStatusWebhook(CurrentActionText)
 
-    task.spawn(function()
-        loadstring(game:HttpGet(Config.Scripts.FarmChalice))()
-    end)
+    SafeLoadScript(Config.Scripts.FarmChalice)
 
     task.spawn(function()
         local hasFoundChalice = false
@@ -338,11 +356,7 @@ local function HandleAltAccount()
         settings().Rendering.QualityLevel = 1
     end)
 
-    task.spawn(function()
-        pcall(function()
-            loadstring(game:HttpGet(Config.Scripts.AntiAFK))()
-        end)
-    end)
+    SafeLoadScript(Config.Scripts.AntiAFK)
 
     task.spawn(function()
         while task.wait(3) do
@@ -396,9 +410,9 @@ local function HandleAltAccount()
                         end
 
                         if targetBoss == "DoughKing" then
-                            loadstring(game:HttpGet(Config.Scripts.FightDough))()
+                            SafeLoadScript(Config.Scripts.FightDough)
                         else
-                            loadstring(game:HttpGet(Config.Scripts.FightIndra))()
+                            SafeLoadScript(Config.Scripts.FightIndra)
                         end
                         break
                     end
