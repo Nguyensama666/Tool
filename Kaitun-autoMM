@@ -13,24 +13,30 @@ local LocalPlayer = Players.LocalPlayer
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
 
 -- ----------------------------------------------------
--- HÀM GỬI LỖI LÊN GEMINI SERVER ĐỂ TỰ SỬA CODE GITHUB
+-- HÀM GỬI LỖI AN TOÀN (CHỐNG LỖI BLACKLISTED FUNCTION)
 -- ----------------------------------------------------
 local function AutoFixByGemini(filePathInGithub, errorMessage, sourceCode)
     task.spawn(function()
         local renderUrl = "https://autofix-server-oi94.onrender.com/fix-script"
-        if http_request then
+        
+        -- Tìm hàm HTTP request an toàn không bị Executor blacklist
+        local req = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
+
+        if req and type(req) == "function" then
             pcall(function()
-                http_request({
+                req({
                     Url = renderUrl,
                     Method = "POST",
                     Headers = {["Content-Type"] = "application/json"},
-                    Body = HttpService:JSONEncode({
+                    Body = game:GetService("HttpService"):JSONEncode({
                         file_path = filePathInGithub,
                         error_log = tostring(errorMessage),
                         current_code = sourceCode
                     })
                 })
             end)
+        else
+            warn("⚠️ Executor hiện tại đang cấm/chặn hàm Request (Blacklisted HTTP Request)!")
         end
     end)
 end
