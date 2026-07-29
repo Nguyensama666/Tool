@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM CHECK CACAO MULTI-SCAN)
+-- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM LỖI INDEX 'Success')
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -11,26 +11,6 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
-
--- HÀM LOAD SCRIPT AN TOÀN (CHỐNG LỖI NIL VALUE)
-local function SafeLoadScript(url)
-    if not url or url == "" then return end
-    task.spawn(function()
-        local success, code = pcall(function()
-            return game:HttpGet(url)
-        end)
-        if success and code then
-            local func, err = loadstring(code)
-            if func then
-                func()
-            else
-                warn("❌ Lỗi cú pháp trong Script Con (" .. tostring(url) .. "):", err)
-            end
-        else
-            warn("❌ Không thể tải Script từ URL:", tostring(url))
-        end
-    end)
-end
 
 -- 1. LOAD CONFIG TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
@@ -115,78 +95,48 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM CHECK CACAO ĐA TẦNG (MULTI-LAYER INVENTORY SCAN)
+-- HÀM LẤY ĐỒ CHUẨN XÁC (FIX LỖI COROUTINE & TIMEOUT)
 -- ----------------------------------------------------
-local function SafeGetItemCount(targetName)
+local function SafeGetItemCount(itemName)
     local count = 0
-    
-    -- [TẦNG 1]: QUÉT TỪ SERVER REMOTE COMMF
-    pcall(function()
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        local commF = remotes and remotes:FindFirstChild("CommF_")
-        if commF then
-            local inv = commF:InvokeServer("getInventory")
-            if type(inv) == "table" then
-                for _, item in ipairs(inv) do
-                    if type(item) == "table" then
-                        local name = tostring(item.Name or item.NameItem or item.ItemName or "")
-                        if name == "Cocoa" or name == "Conjured Cocoa" or string.find(name, "Cocoa") then
-                            count = tonumber(item.Count or item.Amount or item.Value or item.Quantity) or 1
+    local bindable = Instance.new("BindableEvent")
+
+    task.spawn(function()
+        pcall(function()
+            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+            local commF = remotes and remotes:FindFirstChild("CommF_")
+            if commF then
+                local inv = commF:InvokeServer("getInventory")
+                if type(inv) == "table" then
+                    for _, item in ipairs(inv) do
+                        if item.Name == itemName then
+                            count = item.Count or 1
                             break
                         end
                     end
                 end
             end
-        end
+        end)
+        bindable:Fire()
     end)
 
-    -- [TẦNG 2]: QUÉT TRỰC TIẾP BACKPACK & CHARACTER (NẾU REMOTE TẦNG 1 BỊ MISS)
-    if count == 0 then
-        pcall(function()
-            local searchLocations = {LocalPlayer:FindFirstChild("Backpack"), LocalPlayer.Character}
-            for _, loc in ipairs(searchLocations) do
-                if loc then
-                    for _, child in ipairs(loc:GetChildren()) do
-                        if string.find(child.Name, "Cocoa") or string.find(child.Name, "Conjured") then
-                            local val = child:FindFirstChild("Count") or child:FindFirstChild("Value") or child:FindFirstChild("Amount")
-                            count = val and tonumber(val.Value) or 1
-                            break
-                        end
-                    end
-                end
-            end
-        end)
-    end
+    task.delay(2.5, function()
+        bindable:Fire()
+    end)
 
-    -- [TẦNG 3]: QUÉT FOLDER DATA CỦA PLAYER
-    if count == 0 then
-        pcall(function()
-            local playerData = LocalPlayer:FindFirstChild("Data") or LocalPlayer:FindFirstChild("DataFolder")
-            if playerData then
-                local inventoryFolder = playerData:FindFirstChild("Inventory") or playerData:FindFirstChild("Materials")
-                if inventoryFolder then
-                    for _, item in ipairs(inventoryFolder:GetChildren()) do
-                        if string.find(item.Name, "Cocoa") then
-                            count = tonumber(item.Value) or 1
-                            break
-                        end
-                    end
-                end
-            end
-        end)
-    end
-
+    bindable.Event:Wait()
+    bindable:Destroy()
     return count
 end
 
 -- ----------------------------------------------------
--- HÀM BẮN WEBHOOK STATUS ĐỨNG YÊN
+-- HÀM BẮN WEBHOOK STATUS ĐỨNG YÊN (SAFE HTTP CHECK)
 -- ----------------------------------------------------
 local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" or string.find(Config.StatusWebhook, "YOUR_NEW_WEBHOOK") then return end
 
     task.spawn(function()
-        local currentCocoa = SafeGetItemCount("Cocoa")
+        local currentCocoa = SafeGetItemCount("Conjured Cocoa")
         local backpack = LocalPlayer:FindFirstChild("Backpack")
         local char = LocalPlayer.Character
         local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
@@ -324,21 +274,21 @@ local function HandleMainAccount()
         CurrentActionText = "🔴 Đang Farm Haki Legend..."
         UpdateUI(CurrentActionText, Color3.fromRGB(255, 100, 100))
         SendOrUpdateStatusWebhook(CurrentActionText)
-        SafeLoadScript(Config.Scripts.FarmHaki)
+        loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
         return
     end
 
     -- 2. Check Cacao
     local currentCocoa = 0
     if Config.TargetBoss == "DoughKing" then
-        currentCocoa = SafeGetItemCount("Cocoa")
+        currentCocoa = SafeGetItemCount("Conjured Cocoa")
         
         if currentCocoa < (Config.RequiredCocoa or 10) then
             CurrentActionText = "🔴 Đang Farm Cacao (" .. currentCocoa .. "/" .. (Config.RequiredCocoa or 10) .. ")..."
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
-            SafeLoadScript(Config.Scripts.FarmCocoa)
+            loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
             return
         end
     end
@@ -348,7 +298,9 @@ local function HandleMainAccount()
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
     SendOrUpdateStatusWebhook(CurrentActionText)
 
-    SafeLoadScript(Config.Scripts.FarmChalice)
+    task.spawn(function()
+        loadstring(game:HttpGet(Config.Scripts.FarmChalice))()
+    end)
 
     task.spawn(function()
         local hasFoundChalice = false
@@ -383,7 +335,11 @@ local function HandleAltAccount()
         settings().Rendering.QualityLevel = 1
     end)
 
-    SafeLoadScript(Config.Scripts.AntiAFK)
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet(Config.Scripts.AntiAFK))()
+        end)
+    end)
 
     task.spawn(function()
         while task.wait(3) do
@@ -437,9 +393,9 @@ local function HandleAltAccount()
                         end
 
                         if targetBoss == "DoughKing" then
-                            SafeLoadScript(Config.Scripts.FightDough)
+                            loadstring(game:HttpGet(Config.Scripts.FightDough))()
                         else
-                            SafeLoadScript(Config.Scripts.FightIndra)
+                            loadstring(game:HttpGet(Config.Scripts.FightIndra))()
                         end
                         break
                     end
