@@ -1,5 +1,6 @@
 -- ====================================================
 -- SCRIPT: CONTROLLER TRUNG TÂM (TÍCH HỢP GEMINI AUTO-FIX)
+-- FILE GITHUB: Kaitun-autoMM
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -13,7 +14,7 @@ local LocalPlayer = Players.LocalPlayer
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
 
 -- ----------------------------------------------------
--- HÀM GỬI LỖI AN TOÀN (CHỐNG LỖI BLACKLISTED FUNCTION)
+-- HÀM GỬI LỖI AN TOÀN VỀ GEMINI SERVER
 -- ----------------------------------------------------
 local function AutoFixByGemini(filePathInGithub, errorMessage, sourceCode)
     task.spawn(function()
@@ -28,10 +29,10 @@ local function AutoFixByGemini(filePathInGithub, errorMessage, sourceCode)
                     Url = renderUrl,
                     Method = "POST",
                     Headers = {["Content-Type"] = "application/json"},
-                    Body = game:GetService("HttpService"):JSONEncode({
-                        file_path = filePathInGithub,
+                    Body = HttpService:JSONEncode({
+                        file_path = filePathInGithub or "Kaitun-autoMM",
                         error_log = tostring(errorMessage),
-                        current_code = sourceCode
+                        current_code = sourceCode or "-- No Source Provided"
                     })
                 })
             end)
@@ -55,7 +56,9 @@ if not successLoad or not Config then
     warn("⚠️ Lỗi load Config! Đang gửi Gemini tự kiểm tra...")
     AutoFixByGemini("Config-kaitunMM", errLoad or "Cannot load config string", "return {}")
     task.wait(3)
-    Config = loadstring(game:HttpGet(configUrl))()
+    pcall(function()
+        Config = loadstring(game:HttpGet(configUrl))()
+    end)
 end
 
 if Config and Config.BananaKey then
@@ -186,7 +189,7 @@ local function SafeGetItemCount(itemName)
 
         if not success then
             warn("⚠️ Lỗi Check Túi Đồ: " .. tostring(err))
-            AutoFixByGemini("Scripts/Controller.lua", err, "Check Inventory Function Error")
+            AutoFixByGemini("Kaitun-autoMM", err, "Error in SafeGetItemCount function")
         end
 
         finished = true
@@ -206,7 +209,7 @@ end
 -- 4. LIVE STATUS WEBHOOK
 -- ----------------------------------------------------
 local function SendOrUpdateStatusWebhook(actionStatus)
-    if not Config.StatusWebhook or Config.StatusWebhook == "" or string.find(Config.StatusWebhook, "YOUR_NEW_WEBHOOK") then return end
+    if not Config or not Config.StatusWebhook or Config.StatusWebhook == "" or string.find(Config.StatusWebhook, "YOUR_NEW_WEBHOOK") then return end
 
     task.spawn(function()
         local currentCocoa = SafeGetItemCount("Cocoa")
@@ -240,8 +243,11 @@ local function SendOrUpdateStatusWebhook(actionStatus)
         }
 
         pcall(function()
+            local req = (syn and syn.request) or (http and http.request) or http_request or request
+            if not req then return end
+
             if not StatusMessageId then
-                local res = http_request({
+                local res = req({
                     Url = Config.StatusWebhook .. "?wait=true",
                     Method = "POST",
                     Headers = {["Content-Type"] = "application/json"},
@@ -252,7 +258,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
                     if success and data and data.id then StatusMessageId = data.id end
                 end
             else
-                local res = http_request({
+                local res = req({
                     Url = Config.StatusWebhook .. "/messages/" .. StatusMessageId,
                     Method = "PATCH",
                     Headers = {["Content-Type"] = "application/json"},
@@ -274,6 +280,7 @@ end)
 -- 5. WEBHOOK CHÉN THÁNH
 -- ----------------------------------------------------
 local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
+    if not Config then return end
     task.spawn(function()
         local placeId = game.PlaceId
         local jobId = game.JobId
@@ -281,23 +288,27 @@ local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
         local vnTime = os.date("*t", os.time() + 25200)
         local timeString = string.format("%02d/%02d/%04d %02d:%02d:%02d (VN)", vnTime.day, vnTime.month, vnTime.year, vnTime.hour, vnTime.min, vnTime.sec)
 
-        pcall(function()
-            http_request({
-                Url = Config.UpstashURL .. "/set/TargetJobId/" .. jobId .. "?EX=300",
-                Method = "GET",
-                Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
-            })
-            http_request({
-                Url = Config.UpstashURL .. "/set/TargetBoss/" .. bossType .. "?EX=300",
-                Method = "GET",
-                Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
-            })
-        end)
+        local req = (syn and syn.request) or (http and http.request) or http_request or request
+
+        if req then
+            pcall(function()
+                req({
+                    Url = Config.UpstashURL .. "/set/TargetJobId/" .. jobId .. "?EX=300",
+                    Method = "GET",
+                    Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+                })
+                req({
+                    Url = Config.UpstashURL .. "/set/TargetBoss/" .. bossType .. "?EX=300",
+                    Method = "GET",
+                    Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
+                })
+            end)
+        end
 
         local teleportCode = string.format("game:GetService(\"TeleportService\"):TeleportToPlaceInstance(%d, \"%s\", game.Players.LocalPlayer)", placeId, jobId)
         local isDough = (bossType == "DoughKing")
 
-        if Config.DiscordWebhook and Config.DiscordWebhook ~= "" then
+        if Config.DiscordWebhook and Config.DiscordWebhook ~= "" and req then
             local payload = {
                 username = "System Scout",
                 avatar_url = "https://i.imgur.com/8N4X0ZT.png",
@@ -320,7 +331,7 @@ local function PushJobIdAndSendWebhook(chaliceType, cocoaCount)
             }
 
             pcall(function()
-                http_request({
+                req({
                     Url = Config.DiscordWebhook,
                     Method = "POST",
                     Headers = {["Content-Type"] = "application/json"},
@@ -347,7 +358,7 @@ local function HandleMainAccount()
         local success, err = pcall(function()
             loadstring(game:HttpGet(Config.Scripts.FarmHaki .. "?nocache=" .. tostring(os.time())))()
         end)
-        if not success then AutoFixByGemini("Scripts/FarmHaki.lua", err, "Error loading FarmHaki script") end
+        if not success then AutoFixByGemini("Farm haki", err, "Lỗi khi chạy Script Farm Haki Legend") end
         return
     end
 
@@ -364,7 +375,7 @@ local function HandleMainAccount()
             local success, err = pcall(function()
                 loadstring(game:HttpGet(Config.Scripts.FarmCocoa .. "?nocache=" .. tostring(os.time())))()
             end)
-            if not success then AutoFixByGemini("Scripts/FarmCocoa.lua", err, "Error loading FarmCocoa script") end
+            if not success then AutoFixByGemini("Farm cacao", err, "Lỗi khi chạy Script Farm Cacao") end
             return
         end
     end
@@ -377,7 +388,7 @@ local function HandleMainAccount()
         local success, err = pcall(function()
             loadstring(game:HttpGet(Config.Scripts.FarmChalice .. "?nocache=" .. tostring(os.time())))()
         end)
-        if not success then AutoFixByGemini("Scripts/FarmChalice.lua", err, "Error loading FarmChalice script") end
+        if not success then AutoFixByGemini("Farm chén thánh safe", err, "Lỗi khi chạy Script Soi Chén Thánh") end
     end)
 
     task.spawn(function()
@@ -419,18 +430,20 @@ local function HandleAltAccount()
     end)
 
     task.spawn(function()
-        pcall(function()
+        local success, err = pcall(function()
             loadstring(game:HttpGet(Config.Scripts.AntiAFK .. "?nocache=" .. tostring(os.time())))()
         end)
+        if not success then AutoFixByGemini("anti afk", err, "Lỗi khi chạy Script Anti AFK") end
     end)
 
     task.spawn(function()
+        local req = (syn and syn.request) or (http and http.request) or http_request or request
         while task.wait(3) do
-            if isTeleporting then continue end
+            if isTeleporting or not req then continue end
 
             local res = nil
             pcall(function()
-                res = http_request({
+                res = req({
                     Url = Config.UpstashURL .. "/get/TargetJobId",
                     Method = "GET",
                     Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
@@ -459,7 +472,7 @@ local function HandleAltAccount()
                         
                         local getBossRes = nil
                         pcall(function()
-                            getBossRes = http_request({
+                            getBossRes = req({
                                 Url = Config.UpstashURL .. "/get/TargetBoss",
                                 Method = "GET",
                                 Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
@@ -474,9 +487,11 @@ local function HandleAltAccount()
                         end
 
                         if targetBoss == "DoughKing" then
-                            pcall(function() loadstring(game:HttpGet(Config.Scripts.FightDough .. "?nocache=" .. tostring(os.time())))() end)
+                            local success, err = pcall(function() loadstring(game:HttpGet(Config.Scripts.FightDough .. "?nocache=" .. tostring(os.time())))() end)
+                            if not success then AutoFixByGemini("Đánh doughking", err, "Lỗi khi chạy Script Đánh DoughKing") end
                         else
-                            pcall(function() loadstring(game:HttpGet(Config.Scripts.FightIndra .. "?nocache=" .. tostring(os.time())))() end)
+                            local success, err = pcall(function() loadstring(game:HttpGet(Config.Scripts.FightIndra .. "?nocache=" .. tostring(os.time())))() end)
+                            if not success then AutoFixByGemini("Đánh ripindra", err, "Lỗi khi chạy Script Đánh RipIndra") end
                         end
                         break
                     end
@@ -491,7 +506,7 @@ end
 -- ----------------------------------------------------
 -- 8. KHỞI CHẠY CHÍNH
 -- ----------------------------------------------------
-if LocalPlayer.Name == Config.MainAccountName then
+if Config and LocalPlayer.Name == Config.MainAccountName then
     HandleMainAccount()
 else
     HandleAltAccount()
