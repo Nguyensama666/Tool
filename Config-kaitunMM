@@ -3,7 +3,7 @@ return {
     BananaKey       = "e90cac72c2bb8dd1ecb32a50", -- 👈 Điền Key BananaHub tại đây
     TargetBoss      = "DoughKing",
     RequiredCocoa   = 30,
-    NeedFarmHaki    = true,                  
+    NeedFarmHaki    = false,                  
 
     UpstashURL     = "https://accurate-hyena-88788.upstash.io",
     UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
