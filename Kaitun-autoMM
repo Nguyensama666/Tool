@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM LỖI INDEX 'Success')
+-- SCRIPT: CONTROLLER TRUNG TÂM (FIX CACAO & ĐỔI CONFIG REALTIME)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -15,7 +15,7 @@ local http_request = (syn and syn.request) or (http and http.request) or http_re
 -- 1. LOAD CONFIG TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
 
--- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL
+-- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL (getgenv().Key)
 if Config and Config.BananaKey then
     getgenv().Key = Config.BananaKey
 end
@@ -95,7 +95,7 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM LẤY ĐỒ CHUẨN XÁC (FIX LỖI COROUTINE & TIMEOUT)
+-- HÀM LẤY ĐỒ CHUẨN XÁC 100% (FIX CHECK CACAO RỘNG)
 -- ----------------------------------------------------
 local function SafeGetItemCount(itemName)
     local count = 0
@@ -109,9 +109,13 @@ local function SafeGetItemCount(itemName)
                 local inv = commF:InvokeServer("getInventory")
                 if type(inv) == "table" then
                     for _, item in ipairs(inv) do
-                        if item.Name == itemName then
-                            count = item.Count or 1
-                            break
+                        if type(item) == "table" then
+                            local name = item.Name or item.NameItem or ""
+                            -- QUÉT CẢ TÊN "Cocoa" VÀ "Conjured Cocoa" ĐỂ ĐẢM BẢO KHÔNG BỊ MISS
+                            if name == itemName or name == "Cocoa" or name == "Conjured Cocoa" or string.find(name, "Cocoa") then
+                                count = item.Count or item.Amount or item.Value or 1
+                                break
+                            end
                         end
                     end
                 end
@@ -136,7 +140,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" or string.find(Config.StatusWebhook, "YOUR_NEW_WEBHOOK") then return end
 
     task.spawn(function()
-        local currentCocoa = SafeGetItemCount("Conjured Cocoa")
+        local currentCocoa = SafeGetItemCount("Cocoa")
         local backpack = LocalPlayer:FindFirstChild("Backpack")
         local char = LocalPlayer.Character
         local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
@@ -281,7 +285,7 @@ local function HandleMainAccount()
     -- 2. Check Cacao
     local currentCocoa = 0
     if Config.TargetBoss == "DoughKing" then
-        currentCocoa = SafeGetItemCount("Conjured Cocoa")
+        currentCocoa = SafeGetItemCount("Cocoa")
         
         if currentCocoa < (Config.RequiredCocoa or 10) then
             CurrentActionText = "🔴 Đang Farm Cacao (" .. currentCocoa .. "/" .. (Config.RequiredCocoa or 10) .. ")..."
