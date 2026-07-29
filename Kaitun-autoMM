@@ -14,7 +14,9 @@ local http_request = (syn and syn.request) or (http and http.request) or http_re
 
 -- 1. LOAD CONFIG TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
-
+if Config and Config.BananaKey then
+    getgenv().Key = Config.BananaKey
+end
 -- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL (getgenv().Key)
 if Config and Config.BananaKey then
     getgenv().Key = Config.BananaKey
