@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM LỖI INDEX 'Success')
+-- SCRIPT: CONTROLLER TRUNG TÂM (FIX CACHE GITHUB & CHECK CACAO chuẩn)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -12,10 +12,11 @@ local LocalPlayer = Players.LocalPlayer
 
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
 
--- 1. LOAD CONFIG TỪ GITHUB
-local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
+-- 1. LOAD CONFIG TỪ GITHUB (KÈM MÃ CHỐNG CACHE NO-CACHE)
+local configUrl = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM?nocache=" .. tostring(os.time())
+local Config = loadstring(game:HttpGet(configUrl))()
 
--- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL
+-- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL (getgenv().Key)
 if Config and Config.BananaKey then
     getgenv().Key = Config.BananaKey
 end
@@ -95,7 +96,7 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM LẤY ĐỒ CHUẨN XÁC (FIX LỖI COROUTINE & TIMEOUT)
+-- HÀM LẤY ĐỒ CHUẨN XÁC 100% (FIX CHECK CACAO RỘNG)
 -- ----------------------------------------------------
 local function SafeGetItemCount(itemName)
     local count = 0
@@ -109,9 +110,12 @@ local function SafeGetItemCount(itemName)
                 local inv = commF:InvokeServer("getInventory")
                 if type(inv) == "table" then
                     for _, item in ipairs(inv) do
-                        if item.Name == itemName then
-                            count = item.Count or 1
-                            break
+                        if type(item) == "table" then
+                            local name = item.Name or item.NameItem or ""
+                            if name == itemName or name == "Cocoa" or name == "Conjured Cocoa" or string.find(name, "Cocoa") then
+                                count = item.Count or item.Amount or item.Value or 1
+                                break
+                            end
                         end
                     end
                 end
@@ -136,7 +140,7 @@ local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" or string.find(Config.StatusWebhook, "YOUR_NEW_WEBHOOK") then return end
 
     task.spawn(function()
-        local currentCocoa = SafeGetItemCount("Conjured Cocoa")
+        local currentCocoa = SafeGetItemCount("Cocoa")
         local backpack = LocalPlayer:FindFirstChild("Backpack")
         local char = LocalPlayer.Character
         local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
@@ -274,21 +278,21 @@ local function HandleMainAccount()
         CurrentActionText = "🔴 Đang Farm Haki Legend..."
         UpdateUI(CurrentActionText, Color3.fromRGB(255, 100, 100))
         SendOrUpdateStatusWebhook(CurrentActionText)
-        loadstring(game:HttpGet(Config.Scripts.FarmHaki))()
+        loadstring(game:HttpGet(Config.Scripts.FarmHaki .. "?nocache=" .. tostring(os.time())))()
         return
     end
 
     -- 2. Check Cacao
     local currentCocoa = 0
     if Config.TargetBoss == "DoughKing" then
-        currentCocoa = SafeGetItemCount("Conjured Cocoa")
+        currentCocoa = SafeGetItemCount("Cocoa")
         
         if currentCocoa < (Config.RequiredCocoa or 10) then
             CurrentActionText = "🔴 Đang Farm Cacao (" .. currentCocoa .. "/" .. (Config.RequiredCocoa or 10) .. ")..."
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
-            loadstring(game:HttpGet(Config.Scripts.FarmCocoa))()
+            loadstring(game:HttpGet(Config.Scripts.FarmCocoa .. "?nocache=" .. tostring(os.time())))()
             return
         end
     end
@@ -299,7 +303,7 @@ local function HandleMainAccount()
     SendOrUpdateStatusWebhook(CurrentActionText)
 
     task.spawn(function()
-        loadstring(game:HttpGet(Config.Scripts.FarmChalice))()
+        loadstring(game:HttpGet(Config.Scripts.FarmChalice .. "?nocache=" .. tostring(os.time())))()
     end)
 
     task.spawn(function()
@@ -337,7 +341,7 @@ local function HandleAltAccount()
 
     task.spawn(function()
         pcall(function()
-            loadstring(game:HttpGet(Config.Scripts.AntiAFK))()
+            loadstring(game:HttpGet(Config.Scripts.AntiAFK .. "?nocache=" .. tostring(os.time())))()
         end)
     end)
 
@@ -393,9 +397,9 @@ local function HandleAltAccount()
                         end
 
                         if targetBoss == "DoughKing" then
-                            loadstring(game:HttpGet(Config.Scripts.FightDough))()
+                            loadstring(game:HttpGet(Config.Scripts.FightDough .. "?nocache=" .. tostring(os.time())))()
                         else
-                            loadstring(game:HttpGet(Config.Scripts.FightIndra))()
+                            loadstring(game:HttpGet(Config.Scripts.FightIndra .. "?nocache=" .. tostring(os.time())))()
                         end
                         break
                     end
