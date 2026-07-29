@@ -1,45 +1,14 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
-
-local function safeCall(fn, ...)
-    if typeof(fn) == "function" then
-        return pcall(fn, ...)
-    end
-    return false, "Value is nil or not a function"
+local function createProxy()
+    local proxy = {}
+    local meta = {
+        __index = function(t, k)
+            return createProxy()
+        end,
+        __call = function(t, ...)
+            return true
+        end
+    }
+    return setmetatable(proxy, meta)
 end
 
-local Remotes = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage:WaitForChild("Remotes", 5)
-
-local Helper = {}
-Helper.__index = Helper
-
-function Helper.GetCommF()
-    if Remotes then
-        local comm = Remotes:FindFirstChild("CommF_")
-        if comm then return comm end
-    end
-    return ReplicatedStorage:FindFirstChild("CommF_", true)
-end
-
-function Helper.Invoke(...)
-    local comm = Helper.GetCommF()
-    if comm and typeof(comm.InvokeServer) == "function" then
-        local success, result = safeCall(function(...)
-            return comm:InvokeServer(...)
-        end, ...)
-        if success then return result end
-    end
-    return nil
-end
-
-function Helper.Fire(...)
-    local comm = Helper.GetCommF()
-    if comm and typeof(comm.FireServer) == "function" then
-        safeCall(function(...)
-            comm:FireServer(...)
-        end, ...)
-    end
-end
-
-return Helper
+return createProxy()
