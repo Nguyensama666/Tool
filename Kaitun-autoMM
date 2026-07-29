@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM LỖI INDEX 'Success')
+-- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM CHECK CACAO)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -95,7 +95,7 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM LẤY ĐỒ CHUẨN XÁC (FIX LỖI COROUTINE & TIMEOUT)
+-- HÀM LẤY ĐỒ CHUẨN XÁC 100% (FIX BẢN CẬP NHẬT BLOX FRUITS)
 -- ----------------------------------------------------
 local function SafeGetItemCount(itemName)
     local count = 0
@@ -109,9 +109,12 @@ local function SafeGetItemCount(itemName)
                 local inv = commF:InvokeServer("getInventory")
                 if type(inv) == "table" then
                     for _, item in ipairs(inv) do
-                        if item.Name == itemName then
-                            count = item.Count or 1
-                            break
+                        if type(item) == "table" then
+                            local name = item.Name or item.NameItem or ""
+                            if name == itemName or name == "Conjured Cocoa" or name == "Cocoa" then
+                                count = item.Count or item.Amount or item.Value or 1
+                                break
+                            end
                         end
                     end
                 end
@@ -130,13 +133,13 @@ local function SafeGetItemCount(itemName)
 end
 
 -- ----------------------------------------------------
--- HÀM BẮN WEBHOOK STATUS ĐỨNG YÊN (SAFE HTTP CHECK)
+-- HÀM BẮN WEBHOOK STATUS ĐỨNG YÊN
 -- ----------------------------------------------------
 local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" or string.find(Config.StatusWebhook, "YOUR_NEW_WEBHOOK") then return end
 
     task.spawn(function()
-        local currentCocoa = SafeGetItemCount("Conjured Cocoa")
+        local currentCocoa = SafeGetItemCount("Cocoa")
         local backpack = LocalPlayer:FindFirstChild("Backpack")
         local char = LocalPlayer.Character
         local hasChalice = (backpack and (backpack:FindFirstChild("Sweet Chalice") or backpack:FindFirstChild("God's Chalice"))) or 
@@ -281,7 +284,7 @@ local function HandleMainAccount()
     -- 2. Check Cacao
     local currentCocoa = 0
     if Config.TargetBoss == "DoughKing" then
-        currentCocoa = SafeGetItemCount("Conjured Cocoa")
+        currentCocoa = SafeGetItemCount("Cocoa")
         
         if currentCocoa < (Config.RequiredCocoa or 10) then
             CurrentActionText = "🔴 Đang Farm Cacao (" .. currentCocoa .. "/" .. (Config.RequiredCocoa or 10) .. ")..."
@@ -368,7 +371,7 @@ local function HandleAltAccount()
                             TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJobId, LocalPlayer)
                         end)
 
-                        if not tpSuccess then
+                        if not tpSuccess me
                             UpdateUI("⚠️ Server đầy/Lỗi Teleport! Thử lại sau 6s...", Color3.fromRGB(255, 100, 0))
                             task.wait(6)
                             isTeleporting = false
