@@ -1,8 +1,8 @@
 return {
     MainAccountName = "uwrnrw",
-    TargetBoss      = "RipIndra",
-    RequiredCocoa   = 10,
-    NeedFarmHaki    = true,                 
+    TargetBoss      = "DoughKing",
+    RequiredCocoa   = 30,
+    NeedFarmHaki    = false,                 
 
     UpstashURL     = "https://accurate-hyena-88788.upstash.io",
     UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
