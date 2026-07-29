@@ -1,45 +1,22 @@
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+return {
+    MainAccountName = "uwrnrw",
+    BananaKey       = "8f8561aabaf1d632b3f8f1f6", -- 👈 Điền Key BananaHub tại đây
+    TargetBoss      = "RipIndra", Dough King or RipIndra
+    RequiredCocoa   = 20,
+    NeedFarmHaki    = false,                  
 
-local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-
-local function getCommF()
-    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-    if remotes then
-        return remotes:FindFirstChild("CommF_")
-    end
-    return nil
-end
-
-local function safeInvoke(...)
-    local commF = getCommF()
-    if commF and commF:IsA("RemoteFunction") then
-        local args = {...}
-        local success, result = pcall(function()
-            return commF:InvokeServer(unpack(args))
-        end)
-        if success then
-            return result
-        end
-    end
-    return nil
-end
-
-local function safeCall(func, ...)
-    if typeof(func) == "function" then
-        return func(...)
-    end
-    return nil
-end
-
-local Module = {}
-
-Module.Invoke = safeInvoke
-
-Module.Execute = function(self, fn, ...)
-    return safeCall(fn, ...)
-end
-
-return Module
+    UpstashURL     = "https://accurate-hyena-88788.upstash.io",
+    UpstashToken   = "gQAAAAAAAVrUAAIgcDE5MzU4NDRiMTMxZDc0MTIxODc2MjFmZWUwNzFmODA1Nw",
+    
+    DiscordWebhook = "https://discord.com/api/webhooks/1531539189991080096/tiE2wTBP1GWA-NGCO8L3tXBkmKre8WTA7dY9Xzz7nzq9DOBPdTCUZXXn3o2M6nTftWaP",
+    StatusWebhook  = "https://discord.com/api/webhooks/1531676116329173036/7BXj2FCVCxqAuXU4twFgEVLO7ojU9k9UOfnQLW-G951Jod5BIcodFcrIw1TYZlOnGtc7",
+    
+    Scripts = {
+        FarmChalice = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20ch%C3%A9n%20th%C3%A1nh%20safe",
+        FarmCocoa   = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20cacao",
+        FarmHaki    = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Farm%20haki",
+        FightDough  = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/%C4%90%C3%A1nh%20doughking",
+        FightIndra  = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/%C4%90%C3%A1nh%20ripindra",
+        AntiAFK     = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/anti%20afk"
+    }
+}
