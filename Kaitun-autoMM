@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (TÍCH HỢP AUTO-KEY & TỐI ƯU HIỆU NĂNG)
+-- SCRIPT: CONTROLLER TRUNG TÂM (TÍCH HỢP AUTO-KEY & FIX LỖI TỐI ƯU)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -95,12 +95,12 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM LẤY ĐỒ TỐI ƯU TỐC ĐỘ (NON-BLOCKING)
+-- HÀM LẤY ĐỒ CHUẨN XÁC (FIX TRIỆT ĐỂ LỖI COROUTINE CRASH)
 -- ----------------------------------------------------
 local function SafeGetItemCount(itemName)
     local count = 0
-    local thread = coroutine.running()
-    
+    local bindable = Instance.new("BindableEvent")
+
     task.spawn(function()
         pcall(function()
             local remotes = ReplicatedStorage:FindFirstChild("Remotes")
@@ -117,19 +117,16 @@ local function SafeGetItemCount(itemName)
                 end
             end
         end)
-        if coroutine.status(thread) == "suspended" then
-            task.spawn(thread)
-        end
+        bindable:Fire()
     end)
 
-    -- Timeout tối đa 2 giây
-    task.delay(2, function()
-        if coroutine.status(thread) == "suspended" then
-            task.spawn(thread)
-        end
+    -- Timeout 2.5 giây an toàn
+    task.delay(2.5, function()
+        bindable:Fire()
     end)
 
-    coroutine.yield()
+    bindable.Event:Wait()
+    bindable:Destroy()
     return count
 end
 
@@ -329,7 +326,7 @@ local function HandleMainAccount()
 end
 
 -- ----------------------------------------------------
--- LOGIC ACC PHỤ (CHỐNG SPAM CALL UPSTASH & TELEPORT)
+-- LOGIC ACC PHỤ
 -- ----------------------------------------------------
 local function HandleAltAccount()
     UpdateUI("STATUS: ACC PHỤ ĐANG TREO NGẦM", Color3.fromRGB(200, 200, 200))
@@ -358,7 +355,8 @@ local function HandleAltAccount()
             end)
 
             if success and res and res.Body then
-                local dataDecoded = HttpService:JSONDecode(res.Body)
+                local dataDecoded = nil
+                pcall(function() dataDecoded = HttpService:JSONDecode(res.Body) end)
                 local targetJobId = dataDecoded and dataDecoded.result
 
                 if targetJobId and targetJobId ~= true and targetJobId ~= "" then
@@ -388,8 +386,9 @@ local function HandleAltAccount()
                         
                         local targetBoss = Config.TargetBoss
                         if getBossSuccess and getBossRes and getBossRes.Body then
-                            local bossData = HttpService:JSONDecode(getBossRes.Body)
-                            targetBoss = bossData.result or targetBoss
+                            local bossData = nil
+                            pcall(function() bossData = HttpService:JSONDecode(getBossRes.Body) end)
+                            targetBoss = (bossData and bossData.result) or targetBoss
                         end
 
                         if targetBoss == "DoughKing" then
