@@ -2,33 +2,37 @@ repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
 local VirtualUser = game:GetService("VirtualUser")
-
 local LocalPlayer = Players.LocalPlayer
-while not LocalPlayer do
-    task.wait()
-    LocalPlayer = Players.LocalPlayer
-end
 
-if getconnections then
-    for _, conn in ipairs(getconnections(LocalPlayer.Idled)) do
-        if conn.Disable then
-            pcall(function() conn:Disable() end)
-        elseif conn.Disconnect then
-            pcall(function() conn:Disconnect() end)
+local function SafeAntiAFK()
+    if getconnections then
+        for _, conn in pairs(getconnections(LocalPlayer.Idled)) do
+            if conn.Disable then
+                conn:Disable()
+            elseif conn.Disconnect then
+                conn:Disconnect()
+            end
         end
     end
+
+    LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0, 0))
+    end)
 end
 
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
+local success, err = pcall(SafeAntiAFK)
+if not success then
+    LocalPlayer.Idled:Connect(function()
+        VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    end)
+end
 
 task.spawn(function()
     while task.wait(300) do
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end)
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0, 0))
     end
 end)
