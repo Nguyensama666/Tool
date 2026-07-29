@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (TÍCH HỢP AUTO-KEY & FIX LỖI TỐI ƯU)
+-- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM LỖI INDEX 'Success')
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -15,7 +15,7 @@ local http_request = (syn and syn.request) or (http and http.request) or http_re
 -- 1. LOAD CONFIG TỪ GITHUB
 local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"))()
 
--- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL (getgenv().Key)
+-- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL
 if Config and Config.BananaKey then
     getgenv().Key = Config.BananaKey
 end
@@ -95,7 +95,7 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM LẤY ĐỒ CHUẨN XÁC (FIX TRIỆT ĐỂ LỖI COROUTINE CRASH)
+-- HÀM LẤY ĐỒ CHUẨN XÁC (FIX LỖI COROUTINE & TIMEOUT)
 -- ----------------------------------------------------
 local function SafeGetItemCount(itemName)
     local count = 0
@@ -120,7 +120,6 @@ local function SafeGetItemCount(itemName)
         bindable:Fire()
     end)
 
-    -- Timeout 2.5 giây an toàn
     task.delay(2.5, function()
         bindable:Fire()
     end)
@@ -131,7 +130,7 @@ local function SafeGetItemCount(itemName)
 end
 
 -- ----------------------------------------------------
--- HÀM BẮN WEBHOOK STATUS ĐỨNG YÊN (GIỜ VN +7)
+-- HÀM BẮN WEBHOOK STATUS ĐỨNG YÊN (SAFE HTTP CHECK)
 -- ----------------------------------------------------
 local function SendOrUpdateStatusWebhook(actionStatus)
     if not Config.StatusWebhook or Config.StatusWebhook == "" or string.find(Config.StatusWebhook, "YOUR_NEW_WEBHOOK") then return end
@@ -175,8 +174,8 @@ local function SendOrUpdateStatusWebhook(actionStatus)
                     Headers = {["Content-Type"] = "application/json"},
                     Body = HttpService:JSONEncode(payload)
                 })
-                if res and res.Body then
-                    local data = HttpService:JSONDecode(res.Body)
+                if type(res) == "table" and res.Body then
+                    local data = pcall(function() return HttpService:JSONDecode(res.Body) end) and HttpService:JSONDecode(res.Body)
                     if data and data.id then StatusMessageId = data.id end
                 end
             else
@@ -346,15 +345,16 @@ local function HandleAltAccount()
         while task.wait(3) do
             if isTeleporting then continue end
 
-            local success, res = pcall(function()
-                return http_request({
+            local res = nil
+            pcall(function()
+                res = http_request({
                     Url = Config.UpstashURL .. "/get/TargetJobId",
                     Method = "GET",
                     Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
                 })
             end)
 
-            if success and res and res.Body then
+            if type(res) == "table" and res.Body then
                 local dataDecoded = nil
                 pcall(function() dataDecoded = HttpService:JSONDecode(res.Body) end)
                 local targetJobId = dataDecoded and dataDecoded.result
@@ -376,8 +376,9 @@ local function HandleAltAccount()
                     else
                         UpdateUI("✅ Đã vào đúng Server! Bật Script Đánh Boss!", Color3.fromRGB(0, 255, 0))
                         
-                        local getBossSuccess, getBossRes = pcall(function()
-                            return http_request({
+                        local getBossRes = nil
+                        pcall(function()
+                            getBossRes = http_request({
                                 Url = Config.UpstashURL .. "/get/TargetBoss",
                                 Method = "GET",
                                 Headers = { ["Authorization"] = "Bearer " .. Config.UpstashToken }
@@ -385,7 +386,7 @@ local function HandleAltAccount()
                         end)
                         
                         local targetBoss = Config.TargetBoss
-                        if getBossSuccess and getBossRes and getBossRes.Body then
+                        if type(getBossRes) == "table" and getBossRes.Body then
                             local bossData = nil
                             pcall(function() bossData = HttpService:JSONDecode(getBossRes.Body) end)
                             targetBoss = (bossData and bossData.result) or targetBoss
