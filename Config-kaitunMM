@@ -1,7 +1,7 @@
 return {
     MainAccountName = "uwrnrw",
     BananaKey       = "e90cac72c2bb8dd1ecb32a50", -- 👈 Điền Key BananaHub tại đây
-    TargetBoss      = "DoughKing",
+    TargetBoss      = "DoughKing", Dough King or Rip Indra
     RequiredCocoa   = 10,
     NeedFarmHaki    = false,                  
 
