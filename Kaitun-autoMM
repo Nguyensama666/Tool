@@ -1,5 +1,5 @@
 -- ====================================================
--- SCRIPT: CONTROLLER TRUNG TÂM (FIX CACAO DELAY & NO-CACHE)
+-- SCRIPT: CONTROLLER TRUNG TÂM (FIX DỨT ĐIỂM LỖI DÒNG 17 NIL VALUE)
 -- ====================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -12,12 +12,57 @@ local LocalPlayer = Players.LocalPlayer
 
 local http_request = (syn and syn.request) or (http and http.request) or http_request or request
 
--- 1. LOAD CONFIG TỪ GITHUB (NO-CACHE)
-local configUrl = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM?nocache=" .. tostring(os.time())
-local Config = loadstring(game:HttpGet(configUrl))()
+-- HÀM LOAD SCRIPT TỰ ĐỘNG CHỐNG CRASH
+local function SafeExecuteScript(url)
+    if not url or url == "" then return end
+    task.spawn(function()
+        local nocacheUrl = url .. (string.find(url, "%?") and "&nocache=" or "?nocache=") .. tostring(os.time())
+        local success, rawCode = pcall(function()
+            return game:HttpGet(nocacheUrl)
+        end)
+        if success and rawCode and rawCode ~= "" then
+            local func, err = loadstring(rawCode)
+            if func then
+                local execSuccess, execErr = pcall(func)
+                if not execSuccess then
+                    warn("⚠️ Lỗi khi chạy Script Con:", execErr)
+                end
+            else
+                warn("❌ Lỗi cú pháp trong Script Con:", err)
+            end
+        else
+            warn("❌ Không thể tải dữ liệu từ URL:", url)
+        end
+    end)
+end
+
+-- 1. LOAD CONFIG TỪ GITHUB AN TOÀN (THỬ LẠI KHI MẠNG LAG)
+local Config = nil
+local configBaseUrl = "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Config-kaitunMM"
+
+for attempt = 1, 3 do
+    local nocacheUrl = configBaseUrl .. "?nocache=" .. tostring(os.time())
+    local success, rawConfig = pcall(function()
+        return game:HttpGet(nocacheUrl)
+    end)
+    
+    if success and rawConfig and rawConfig ~= "" then
+        local func = loadstring(rawConfig)
+        if func then
+            Config = func()
+            if Config then break end
+        end
+    end
+    task.wait(1)
+end
+
+if not Config then
+    warn("❌ KHÔNG THỂ LOAD CONFIG TỪ GITHUB! HÃY KIỂM TRA MẠNG HOẶC URL CONFIG.")
+    return
+end
 
 -- 2. ĐỒNG BỘ KEY BANANAHUB SANG MÔI TRƯỜNG GLOBAL
-if Config and Config.BananaKey then
+if Config.BananaKey then
     getgenv().Key = Config.BananaKey
 end
 
@@ -96,12 +141,11 @@ CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
 end)
 
 -- ----------------------------------------------------
--- HÀM CHECK CACAO AN TOÀN (CÓ THỬ LẠI KHI DATA DELAY)
+-- HÀM CHECK CACAO AN TOÀN (CÓ RETRY VÀ FALLBACK)
 -- ----------------------------------------------------
 local function SafeGetItemCount(itemName)
     local count = 0
 
-    -- Thử tối đa 3 lần để đợi Server gửi dữ liệu Inventory về
     for attempt = 1, 3 do
         local bindable = Instance.new("BindableEvent")
 
@@ -134,14 +178,10 @@ local function SafeGetItemCount(itemName)
         bindable.Event:Wait()
         bindable:Destroy()
 
-        -- Nếu đã tìm thấy Cacao thì ngắt vòng lặp retry
         if count > 0 then break end
-        
-        -- Nếu chưa tìm thấy, đợi 1.5s rồi thử lại
         if attempt < 3 then task.wait(1.5) end
     end
 
-    -- ĐOẠN DỰ PHÒNG: Quét trực tiếp trong Backpack/Character nếu Remote trả về 0
     if count == 0 then
         pcall(function()
             local searchLocations = {LocalPlayer:FindFirstChild("Backpack"), LocalPlayer.Character}
@@ -307,7 +347,7 @@ local function HandleMainAccount()
         CurrentActionText = "🔴 Đang Farm Haki Legend..."
         UpdateUI(CurrentActionText, Color3.fromRGB(255, 100, 100))
         SendOrUpdateStatusWebhook(CurrentActionText)
-        loadstring(game:HttpGet(Config.Scripts.FarmHaki .. "?nocache=" .. tostring(os.time())))()
+        SafeExecuteScript(Config.Scripts.FarmHaki)
         return
     end
 
@@ -321,7 +361,7 @@ local function HandleMainAccount()
             UpdateUI(CurrentActionText, Color3.fromRGB(255, 150, 0))
             SendOrUpdateStatusWebhook(CurrentActionText)
             
-            loadstring(game:HttpGet(Config.Scripts.FarmCocoa .. "?nocache=" .. tostring(os.time())))()
+            SafeExecuteScript(Config.Scripts.FarmCocoa)
             return
         end
     end
@@ -331,9 +371,7 @@ local function HandleMainAccount()
     UpdateUI(CurrentActionText, Color3.fromRGB(0, 255, 0))
     SendOrUpdateStatusWebhook(CurrentActionText)
 
-    task.spawn(function()
-        loadstring(game:HttpGet(Config.Scripts.FarmChalice .. "?nocache=" .. tostring(os.time())))()
-    end)
+    SafeExecuteScript(Config.Scripts.FarmChalice)
 
     task.spawn(function()
         local hasFoundChalice = false
@@ -368,11 +406,7 @@ local function HandleAltAccount()
         settings().Rendering.QualityLevel = 1
     end)
 
-    task.spawn(function()
-        pcall(function()
-            loadstring(game:HttpGet(Config.Scripts.AntiAFK .. "?nocache=" .. tostring(os.time())))()
-        end)
-    end)
+    SafeExecuteScript(Config.Scripts.AntiAFK)
 
     task.spawn(function()
         while task.wait(3) do
@@ -426,9 +460,9 @@ local function HandleAltAccount()
                         end
 
                         if targetBoss == "DoughKing" then
-                            loadstring(game:HttpGet(Config.Scripts.FightDough .. "?nocache=" .. tostring(os.time())))()
+                            SafeExecuteScript(Config.Scripts.FightDough)
                         else
-                            loadstring(game:HttpGet(Config.Scripts.FightIndra .. "?nocache=" .. tostring(os.time())))()
+                            SafeExecuteScript(Config.Scripts.FightIndra)
                         end
                         break
                     end
