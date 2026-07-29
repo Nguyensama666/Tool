@@ -1,62 +1,14 @@
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
+local Module = {}
+Module.__index = Module
 
-local LocalPlayer = Players.LocalPlayer
-local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
-local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
+function Module.Init(...)
+    return Module
+end
 
-local SafeCall = function(func, ...)
-    if typeof(func) == "function" then
-        return pcall(func, ...)
+setmetatable(Module, {
+    __call = function(self, ...)
+        return self:Init(...)
     end
-    return false, "Not a function"
-end
+})
 
-local SafeInvoke = function(...)
-    if CommF and typeof(CommF) == "Instance" and CommF:IsA("RemoteFunction") then
-        local success, result = pcall(function(...)
-            return CommF:InvokeServer(...)
-        end, ...)
-        if success then
-            return result
-        end
-    end
-    return nil
-end
-
-local MainModule = {}
-MainModule.__index = MainModule
-
-function MainModule.new()
-    local self = setmetatable({}, MainModule)
-    self.Enabled = true
-    return self
-end
-
-function MainModule:GetCommF()
-    return CommF
-end
-
-function MainModule:FireServer(...)
-    return SafeInvoke(...)
-end
-
-function MainModule:Start()
-    if not self.Enabled then return end
-    
-    task.spawn(function()
-        while self.Enabled and task.wait(1) do
-            pcall(function()
-                if LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                    -- Auto Farm Check / Safe Loop
-                end
-            end)
-        end
-    end)
-end
-
-local Controller = MainModule.new()
-Controller:Start()
-
-return Controller
+return Module
