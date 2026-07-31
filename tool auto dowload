@@ -1,3 +1,7 @@
+#!/data/data/com.termux/files/usr/bin/bash
+pkg install -y python termux-api >/dev/null 2>&1
+pip install -q requests >/dev/null 2>&1
+termux-setup-storage
 python3 -c "
 import re, os, requests, subprocess
 
