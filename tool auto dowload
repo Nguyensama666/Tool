@@ -1,0 +1,36 @@
+python3 -c "
+import re, os, requests, subprocess
+
+FOLDER_KEY = 'xssqfc0ij0n83'
+OUT_DIR = os.path.expanduser('~/storage/downloads')
+os.makedirs(OUT_DIR, exist_ok=True)
+
+params = {
+    'content_type': 'files', 'filter': 'all', 'order_by': 'name',
+    'order_direction': 'asc', 'chunk': 1, 'version': '1.5',
+    'folder_key': FOLDER_KEY, 'response_format': 'json',
+}
+r = requests.get('https://www.mediafire.com/api/1.5/folder/get_content.php', params=params).json()
+files = r['response']['folder_content']['files']
+print(f'Tìm thấy {len(files)} file')
+
+for f in files:
+    quickkey = f['quickkey']
+    name = f['filename']
+    page = requests.get(f'https://www.mediafire.com/file/{quickkey}').text
+    m = re.search(r'href=\"(https://download[^\"]+)\"', page)
+    if not m:
+        print('Không tìm thấy link tải cho', name); continue
+    link = m.group(1)
+    dest = os.path.join(OUT_DIR, name)
+    print('Đang tải:', name)
+    with requests.get(link, stream=True) as resp:
+        with open(dest, 'wb') as fp:
+            for chunk in resp.iter_content(1024*1024):
+                fp.write(chunk)
+    print('Xong:', name)
+    if name.lower().endswith('.apk'):
+        print('Đang cài:', name)
+        result = subprocess.run(['su', '-c', f'pm install -r \"{dest}\"'], capture_output=True, text=True)
+        print(result.stdout.strip() or result.stderr.strip())
+"
