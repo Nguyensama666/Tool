@@ -1,15 +1,15 @@
 -- =======================================================
--- SCRIPT CHECK RANDOM - CHỜ ACC VỀ 0S & AUTO TRIGGER CHANGE ACC
+-- SCRIPT CHECK RANDOM - FIX LỖI MẤT ACC & DYNAMIC CONFIG
 -- =======================================================
 
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
-local WAIT_HUB_TIME = 25                 -- Chờ Hub chạy tới NPC
-local CHECK_SCAN_TIME = 15               -- Quét Beli
-local MIN_MONEY_SPENT = 300000          -- Mất >= 300k Beli mới tính
-local MAX_ACC = 10                      -- Tối đa 15 acc
-local COOLDOWN_RANDOM = 2 * 60 * 60     -- Cooldown 2 tiếng (7200s)
-local WEBHOOK_INTERVAL = 30             -- Webhook đếm ngược 30s/lần khi chờ
-local FILE_NAME = "RandomAccList.json"  -- File workspace
+local WAIT_HUB_TIME = 25              -- Chờ Hub chạy tới NPC (giây)
+local CHECK_SCAN_TIME = 15            -- Quét Beli (giây)
+local MIN_MONEY_SPENT = 300000        -- Mất >= 300k Beli mới tính
+local MAX_ACC = 10                    -- Tối đa số lượng Acc (Sửa ở đây sẽ tự cập nhật toàn bộ)
+local COOLDOWN_RANDOM = 2 * 60 * 60  -- Cooldown 2 tiếng (7200s)
+local WEBHOOK_INTERVAL = 30           -- Webhook đếm ngược 30s/lần khi chờ
+local FILE_NAME = "RandomAccList.json" -- File workspace
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -81,7 +81,7 @@ local function sendDiscordWebhook(titleText, descriptionText, colorCode)
             ["title"] = titleText,
             ["description"] = descriptionText,
             ["color"] = colorCode or 65280,
-            ["footer"] = { ["text"] = "Smart Cooldown & Trade Manager | Max 15 Acc" },
+            ["footer"] = { ["text"] = "Smart Cooldown & Trade Manager | Max " .. MAX_ACC .. " Acc" },
             ["timestamp"] = DateTime.now():ToIsoDate()
         }
         local payload = HttpService:JSONEncode({ ["username"] = "Random Manager", ["embeds"] = { embedData } })
@@ -96,7 +96,7 @@ end
 
 local function sendSummaryWebhook(accList, isWaiting, readyAccName)
     local currentTime = os.time()
-    local descriptionText = "📊 **DANH SÁCH ACC ĐÃ RANDOM XONG (" .. #accList .. "/" .. MAX_ACC .. ")**\n\n"
+    local descriptionText = string.format("📊 **DANH SÁCH ACC ĐÃ RANDOM XONG (%d/%d)**\n\n", #accList, MAX_ACC)
     
     for index, item in ipairs(accList) do
         local elapsedTime = currentTime - item.timestamp
@@ -117,8 +117,8 @@ local function sendSummaryWebhook(accList, isWaiting, readyAccName)
         descriptionText = descriptionText .. "\n🔥 **Acc `" .. readyAccName .. "` đã đủ 2 tiếng! Đang delay 1 phút để Tool Termux chuyển acc...**"
         colorCode = 16766720
     elseif isWaiting then
-        titleText = "⏳ ĐÃ ĐỦ 15 ACC - ĐANG TREO CHỜ ACC VỀ 0S"
-        descriptionText = descriptionText .. "\n🛑 **Đã gom đủ 15 Acc! Script đang nghỉ liên tục để đợi acc chín...**"
+        titleText = string.format("⏳ ĐÃ ĐỦ %d ACC - ĐANG TREO CHỜ ACC VỀ 0S", MAX_ACC)
+        descriptionText = descriptionText .. string.format("\n🛑 **Đã gom đủ %d Acc! Script đang nghỉ liên tục để đợi acc chín...**", MAX_ACC)
         colorCode = 16711680
     end
 
@@ -126,20 +126,15 @@ local function sendSummaryWebhook(accList, isWaiting, readyAccName)
 end
 
 -- -------------------------------------------------------
--- QUẢN LÝ WORKSPACE DỮ LIỆU
+-- QUẢN LÝ WORKSPACE DỮ LIỆU (FIXED LỖI TỰ XÓA ACC)
 -- -------------------------------------------------------
 local function loadAccList()
     if isfile and isfile(FILE_NAME) then
         local success, data = pcall(function() return HttpService:JSONDecode(readfile(FILE_NAME)) end)
         if success and type(data) == "table" then
-            local validList = {}
-            local currentTime = os.time()
-            for _, item in ipairs(data) do
-                if (currentTime - item.timestamp) < COOLDOWN_RANDOM then
-                    table.insert(validList, item)
-                end
-            end
-            return validList
+            -- Giữ lại TOÀN BỘ dữ liệu danh sách acc trong file JSON
+            -- Không tự động lọc xóa acc >= 2 tiếng để theo dõi danh sách chính xác
+            return data
         end
     end
     return {}
@@ -236,17 +231,21 @@ task.spawn(function()
     local accList = loadAccList()
     local exists = false
     for _, acc in ipairs(accList) do
-        if acc.name == playerName then exists = true break end
+        if acc.name == playerName then 
+            acc.timestamp = os.time() -- Cập nhật lại mốc thời gian nếu acc này random lại
+            exists = true 
+            break 
+        end
     end
 
     if not exists then
         table.insert(accList, { name = playerName, timestamp = os.time() })
-        saveAccList(accList)
     end
+    saveAccList(accList)
 
     local currentTotal = #accList
 
-    -- NẾU ĐỦ 15 ACC -> CHUYỂN SANG CHẾ ĐỘ NGHỈ LIÊN TỤC CHỜ ACC VỀ 0S
+    -- NẾU ĐỦ SỐ LƯỢNG MAX_ACC -> CHUYỂN SANG CHẾ ĐỘ NGHỈ LIÊN TỤC CHỜ ACC VỀ 0S
     if currentTotal >= MAX_ACC then
         timerLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
         local readyAccName = nil
@@ -275,7 +274,7 @@ task.spawn(function()
                 webhookTimer = 0
             end
 
-            timerLabel.Text = "🛑 Đủ 15 Acc! Đang nghỉ liên tục chờ acc về 0s..."
+            timerLabel.Text = string.format("🛑 Đủ %d Acc! Đang nghỉ liên tục chờ acc về 0s...", MAX_ACC)
             task.wait(1)
         end
 
@@ -301,7 +300,7 @@ task.spawn(function()
         pcall(function() screenGui:Destroy() end)
 
     else
-        -- CHƯA ĐỦ 15 ACC -> BẬT CHANGE ACC CHUYỂN NICK TIẾP
+        -- CHƯA ĐỦ MAX_ACC -> BẬT CHANGE ACC CHUYỂN NICK TIẾP
         timerLabel.TextColor3 = Color3.fromRGB(0, 255, 127)
         timerLabel.Text = string.format("✅ Đã lưu Acc %s (%d/%d) - Đổi acc tiếp...", playerName, currentTotal, MAX_ACC)
         sendSummaryWebhook(accList, false, nil)
