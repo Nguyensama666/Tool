@@ -1,8 +1,3 @@
-#!/data/data/com.termux/files/usr/bin/bash
-pkg install -y python termux-api >/dev/null 2>&1
-pip install -q requests >/dev/null 2>&1
-termux-setup-storage
-python3 -c "
 import re, os, requests, subprocess, time
 
 FOLDER_KEY = 'xssqfc0ij0n83'
@@ -28,7 +23,7 @@ def download_file(link, dest, retries=3):
                         fp.write(chunk)
             return True
         except Exception as e:
-            print(f'  Lỗi lần {attempt}: {e}')
+            print(f'  Loi lan {attempt}: {e}')
             time.sleep(2)
     return False
 
@@ -37,22 +32,22 @@ for f in files:
     name = f['filename']
     try:
         page = requests.get(f'https://www.mediafire.com/file/{quickkey}', timeout=30).text
-        m = re.search(r'href=\"(https://download[^\"]+)\"', page)
+        m = re.search(r'href="(https://download[^"]+)"', page)
         if not m:
-            print('Không tìm thấy link tải cho', name); continue
+            print('Khong tim thay link tai cho', name)
+            continue
         link = m.group(1)
         dest = os.path.join(OUT_DIR, name)
-        print('Đang tải:', name)
+        print('Dang tai:', name)
         ok = download_file(link, dest)
         if not ok:
-            print('Bỏ qua', name, 'sau nhiều lần lỗi')
+            print('Bo qua', name, 'sau nhieu lan loi')
             continue
         print('Xong:', name)
         if name.lower().endswith('.apk'):
-            print('Đang cài:', name)
-            result = subprocess.run(['su', '-c', f'pm install -r \"{dest}\"'], capture_output=True, text=True)
+            print('Dang cai:', name)
+            result = subprocess.run(['su', '-c', f'pm install -r "{dest}"'], capture_output=True, text=True)
             print(result.stdout.strip() or result.stderr.strip())
     except Exception as e:
-        print('Lỗi tổng quát với', name, ':', e)
+        print('Loi tong quat voi', name, ':', e)
         continue
-"
