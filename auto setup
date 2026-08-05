@@ -1,0 +1,244 @@
+#!/bin/bash
+# ============================================================
+# AUTO ROBLOX ULTIMATE - 1 LỆNH DUY NHẤT (TỰ ĐỘNG CÀI MÔI TRƯỜNG)
+# Chạy: bash <(curl -s "https://raw.githubusercontent.com/...")
+# ============================================================
+
+echo "═══════════════════════════════════════════════"
+echo "    🤖 AUTO ROBLOX ULTIMATE - 1 LỆNH"
+echo "═══════════════════════════════════════════════"
+echo ""
+
+# ====== CÀI ĐẶT MÔI TRƯỜNG TRƯỚC ======
+echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
+
+# 1. Cập nhật Termux
+echo "[1/5] Cập nhật Termux..."
+yes | pkg update -y && yes | pkg upgrade -y
+
+# 2. Cài Python và pip
+echo "[2/5] Cài Python..."
+yes | pkg install -y python python-pip
+
+# 3. Cài các gói cần thiết
+echo "[3/5] Cài gói cần thiết..."
+yes | pkg install -y curl wget git
+yes | pkg install -y expect        # Tự động ấn phím
+yes | pkg install -y termux-api    # Gọi API Android
+yes | pkg install -y openssl       # Bảo mật
+
+# 4. Cài Python packages
+echo "[4/5] Cài Python packages..."
+pip install --upgrade pip
+pip install -q requests flask
+
+# 5. Setup storage
+echo "[5/5] Setup storage..."
+termux-setup-storage
+
+echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
+echo ""
+
+# ====== THAM SỐ ======
+DOWNLOAD="/sdcard/Download"
+DELTA_AUTOEXEC="/storage/emulated/0/Delta/Autoexecute"
+COOKIE_FILE="$DOWNLOAD/t.txt"
+LOG_FILE="$DOWNLOAD/ultimate_log.txt"
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/1534471115479580717/bxvxvIUA2zwvr7qXF01PA4I7QqVRfWi411AzSV46SYPUrRKK10t9gVI9543VYYoxpQUu"  # THAY URL CỦA BẠN
+
+# ====== HÀM ======
+log() {
+    echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+send_discord() {
+    curl -s -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" \
+         -d "{\"content\": \"$1\"}" 2>/dev/null
+}
+
+log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
+
+# ============================================
+# PHASE 1: TOOL 1 + TOOL 2
+# ============================================
+log "[1/6] Chạy Tool 1 & Tool 2..."
+send_discord "🔄 Đang setup môi trường..."
+
+# Tool 1
+curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+
+# Tool 2
+bash <(curl https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
+
+wait
+log "✅ Tool 1 & 2 hoàn tất!"
+
+# ============================================
+# PHASE 2: MỞ ROBLOX TẠO DELTA
+# ============================================
+log "[2/6] Mở Roblox tạo Delta..."
+send_discord "📱 Đang tạo Delta package..."
+
+am start -n com.roblox.client/.activity
+sleep 12
+adb shell input keyevent KEYCODE_BACK
+sleep 2
+log "✅ Đã tạo Delta"
+
+# ============================================
+# PHASE 3: CÀY 2 SCRIPT VÀO DELTA
+# ============================================
+log "[3/6] Cày script vào Delta..."
+send_discord "⚙️ Đang cài script..."
+
+mkdir -p "$DELTA_AUTOEXEC"
+
+# Copy script từ Download
+[ -f "$DOWNLOAD/yumy.txt" ] && cp "$DOWNLOAD/yumy.txt" "$DELTA_AUTOEXEC/"
+[ -f "$DOWNLOAD/kaitun (2).txt" ] && cp "$DOWNLOAD/kaitun (2).txt" "$DELTA_AUTOEXEC/"
+
+# Tạo autoexecute.lua
+cat > "$DELTA_AUTOEXEC/autoexecute.lua" << 'EOF'
+-- ===== AUTO EXECUTE SCRIPT =====
+loadstring(game:HttpGet("https://raw.githubusercontent.com/..."))()
+EOF
+
+log "✅ Đã cày 2 script vào Autoexecute"
+send_discord "✅ Script đã được cài"
+
+# ============================================
+# PHASE 4: WEBHOOK NHẬN COOKIE
+# ============================================
+log "[4/6] Khởi động webhook..."
+send_discord "🍪 **Gửi cookie vào đây!**"
+
+# Chạy webhook bằng Python (không cần Flask)
+nohup python3 -c "
+import os, json, socket, threading, time, requests
+
+COOKIE_FILE = '/sdcard/Download/t.txt'
+DISCORD_WEBHOOK = '$DISCORD_WEBHOOK'
+
+def send_discord(msg):
+    try:
+        requests.post(DISCORD_WEBHOOK, json={'content': msg})
+    except: pass
+
+def handle_client(client):
+    data = client.recv(4096).decode()
+    if 'POST' in data and '/webhook' in data:
+        body = data.split('\r\n\r\n')[-1]
+        try:
+            json_data = json.loads(body)
+            cookie = json_data.get('content', '').strip()
+            if cookie and len(cookie) > 50:
+                with open(COOKIE_FILE, 'w') as f:
+                    f.write(cookie)
+                send_discord('✅ Đã nhận và lưu cookie!')
+                client.send(b'HTTP/1.1 200 OK\r\n\r\nOK')
+                client.close()
+                return
+        except: pass
+    client.send(b'HTTP/1.1 400 Bad Request\r\n\r\nERROR')
+    client.close()
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(('0.0.0.0', 5000))
+server.listen(1)
+send_discord('🟢 Webhook receiver sẵn sàng!')
+while True:
+    try:
+        client, addr = server.accept()
+        threading.Thread(target=handle_client, args=(client,)).start()
+    except:
+        break
+" > /dev/null 2>&1 &
+
+WEBHOOK_PID=$!
+log "✅ Webhook đang chạy (PID: $WEBHOOK_PID)"
+
+# ============================================
+# PHASE 5: CHỜ COOKIE
+# ============================================
+log "[5/6] Chờ cookie từ Discord..."
+touch "$COOKIE_FILE"
+
+WAIT=0
+while [ ! -s "$COOKIE_FILE" ] && [ $WAIT -lt 120 ]; do
+    echo -n "."
+    sleep 2
+    WAIT=$((WAIT + 2))
+done
+
+if [ ! -s "$COOKIE_FILE" ]; then
+    log "❌ Hết thời gian chờ cookie!"
+    send_discord "❌ Không nhận được cookie!"
+    exit 1
+fi
+
+COOKIE=$(head -1 "$COOKIE_FILE")
+log "✅ Đã nhận cookie: ${COOKIE:0:30}..."
+send_discord "✅ Nhận cookie thành công!"
+
+# ============================================
+# PHASE 6: LOGIN
+# ============================================
+log "[6/6] Đang login Roblox..."
+send_discord "🔑 Đang login..."
+
+cd "$DOWNLOAD"
+
+expect << EOF
+set timeout 30
+spawn su -c "export PATH=$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download && python obf-wuyx_rejoin.py"
+expect "*: " { send "2\r" }
+sleep 2
+expect "*: " { send "5\r" }
+sleep 2
+expect "*: " { send "0\r" }
+sleep 2
+expect "*: " { send "8\r" }
+sleep 2
+expect "*: " { send "2\r" }
+sleep 2
+expect "*: " { send "t.txt\r" }
+sleep 2
+expect eof
+EOF
+
+log "✅ Đã gửi lệnh login!"
+
+# ============================================
+# PHASE 7: MỞ LẠI ROBLOX
+# ============================================
+log "🔄 Mở lại Roblox..."
+sleep 3
+
+# Xóa tab cũ
+adb shell input keyevent KEYCODE_APP_SWITCH
+sleep 1
+adb shell input keyevent KEYCODE_DPAD_DOWN
+sleep 1
+adb shell input keyevent KEYCODE_ENTER
+sleep 1
+adb shell input keyevent KEYCODE_BACK
+
+# Mở Roblox
+am start -n com.roblox.client/.activity
+sleep 10
+
+# ============================================
+# HOÀN TẤT
+# ============================================
+log "✅ HOÀN TẤT!"
+send_discord "🎉 **HOÀN TẤT! Acc đã login vào Blox Fruit!**"
+
+echo ""
+echo "═══════════════════════════════════════════════"
+echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
+echo "═══════════════════════════════════════════════"
+echo ""
+echo "📊 Log: $LOG_FILE"
+echo "🍪 Cookie: $COOKIE_FILE"
+echo "⏱️  Thời gian: ~3 phút"
+echo ""
