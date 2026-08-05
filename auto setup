@@ -159,7 +159,7 @@ set timeout 30
 spawn su -c "export PATH=$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download && python obf-wuyx_rejoin.py"
 expect "*: " { send "2\r" }
 sleep 2
-expect "*: " { send "5\r" }
+expect "*: " { send "6\r" }
 sleep 2
 expect "*: " { send "0\r" }
 sleep 2
