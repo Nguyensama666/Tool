@@ -192,34 +192,35 @@ log "✅ Đã gửi lệnh login!"
 
 # ============================================
 # ============================================
+# ============================================
 # PHASE 6: MỞ LẠI ROBLOX VÀ VÀO BLOX FRUIT
 # ============================================
 log "[6/6] Mở lại Roblox và vào Blox Fruit..."
 sleep 3
 
-# Xóa tab cũ
-input keyevent KEYCODE_APP_SWITCH
-sleep 1
-input keyevent KEYCODE_DPAD_DOWN
-sleep 1
-input keyevent KEYCODE_ENTER
-sleep 1
-input keyevent KEYCODE_BACK
-
-# Mở Roblox bằng Delta package
+# TẮT HẲN ROBLOX (Thay vì xóa tab)
 if [ -d "/storage/emulated/0/Android/data/vip.delta.lite.samehwid.maio" ]; then
-    log "📱 Mở Roblox bằng Delta package và vào Blox Fruit..."
-    # Mở thẳng vào Blox Fruit (Place ID: 2753915549)
+    log "🔴 Tắt Roblox (Delta package)..."
+    am force-stop vip.delta.lite.samehwid.maio
+else
+    log "🔴 Tắt Roblox (gốc)..."
+    am force-stop com.roblox.client
+fi
+
+sleep 2
+
+# MỞ LẠI ROBLOX VÀ VÀO BLOX FRUIT
+if [ -d "/storage/emulated/0/Android/data/vip.delta.lite.samehwid.maio" ]; then
+    log "📱 Mở Roblox bằng Delta package vào Blox Fruit..."
     am start -a android.intent.action.VIEW -d "roblox://placeId=2753915549" -n vip.delta.lite.samehwid.maio/.Activity 2>/dev/null || \
     monkey -p vip.delta.lite.samehwid.maio -c android.intent.category.LAUNCHER 1
 else
-    log "⚠️ Không tìm thấy Delta package, mở Roblox thường..."
+    log "📱 Mở Roblox thường vào Blox Fruit..."
     am start -a android.intent.action.VIEW -d "roblox://placeId=2753915549" -n com.roblox.client/.Activity
 fi
 
 sleep 10
 log "✅ Đã vào Blox Fruit!"
-
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
