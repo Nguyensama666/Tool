@@ -1,38 +1,29 @@
 #!/bin/bash
 # ============================================================
-# AUTO ROBLOX ULTIMATE - 1 LỆNH DUY NHẤT (TỰ ĐỘNG CÀI MÔI TRƯỜNG)
-# Chạy: bash <(curl -s "https://raw.githubusercontent.com/...")
+# AUTO ROBLOX ULTIMATE - CHỜ MỞ ROBLOX BẰNG TAY
 # ============================================================
 
 echo "═══════════════════════════════════════════════"
-echo "    🤖 AUTO ROBLOX ULTIMATE - 1 LỆNH"
+echo "    🤖 AUTO ROBLOX - CHỜ MỞ ROBLOX"
 echo "═══════════════════════════════════════════════"
 echo ""
 
 # ====== CÀI ĐẶT MÔI TRƯỜNG TRƯỚC ======
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 
-# 1. Cập nhật Termux
 echo "[1/5] Cập nhật Termux..."
 yes | pkg update -y && yes | pkg upgrade -y
 
-# 2. Cài Python và pip
 echo "[2/5] Cài Python..."
 yes | pkg install -y python python-pip
 
-# 3. Cài các gói cần thiết
 echo "[3/5] Cài gói cần thiết..."
-yes | pkg install -y curl wget git
-yes | pkg install -y expect        # Tự động ấn phím
-yes | pkg install -y termux-api    # Gọi API Android
-yes | pkg install -y openssl       # Bảo mật
+yes | pkg install -y curl wget git expect termux-api openssl
 
-# 4. Cài Python packages
 echo "[4/5] Cài Python packages..."
 pip install --upgrade pip
 pip install -q requests flask
 
-# 5. Setup storage
 echo "[5/5] Setup storage..."
 termux-setup-storage
 
@@ -44,7 +35,7 @@ DOWNLOAD="/sdcard/Download"
 DELTA_AUTOEXEC="/storage/emulated/0/Delta/Autoexecute"
 COOKIE_FILE="$DOWNLOAD/t.txt"
 LOG_FILE="$DOWNLOAD/ultimate_log.txt"
-DISCORD_WEBHOOK="https://discord.com/api/webhooks/1534471115479580717/bxvxvIUA2zwvr7qXF01PA4I7QqVRfWi411AzSV46SYPUrRKK10t9gVI9543VYYoxpQUu"  # THAY URL CỦA BẠN
+DISCORD_WEBHOOK="https://discord.com/api/webhooks/1534471115479580717/bxvxvIUA2zwvr7qXF01PA4I7QqVRfWi411AzSV46SYPUrRKK10t9gVI9543VYYoxpQUu"
 
 # ====== HÀM ======
 log() {
@@ -72,18 +63,49 @@ bash <(curl https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47
 
 wait
 log "✅ Tool 1 & 2 hoàn tất!"
+send_discord "✅ Tool 1 & 2 đã hoàn tất!"
 
 # ============================================
-# PHASE 2: MỞ ROBLOX TẠO DELTA
+# PHASE 2: CHỜ BẠN MỞ ROBLOX BẰNG TAY
 # ============================================
-log "[2/6] Mở Roblox tạo Delta..."
-send_discord "📱 Đang tạo Delta package..."
+echo ""
+echo "═══════════════════════════════════════════════"
+echo "    👆 VUI LÒNG MỞ ROBLOX BẰNG TAY"
+echo "═══════════════════════════════════════════════"
+echo ""
+echo "📱 Hãy ấn vào icon Roblox trên màn hình"
+echo "⏳ Script sẽ tự động kiểm tra package mỗi 5 giây"
+echo ""
+echo "📦 Package cần tìm: vip.delta.lite.samehwid.maio"
+echo ""
 
-am start -n com.roblox.client/.activity
-sleep 12
-adb shell input keyevent KEYCODE_BACK
-sleep 2
-log "✅ Đã tạo Delta"
+log "[2/6] CHỜ BẠN MỞ ROBLOX BẰNG TAY..."
+send_discord "👆 Vui lòng mở Roblox bằng tay!"
+
+# Kiểm tra package mỗi 5 giây
+PACKAGE_FOUND=0
+CHECK_COUNT=0
+
+while [ $PACKAGE_FOUND -eq 0 ]; do
+    CHECK_COUNT=$((CHECK_COUNT + 1))
+    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra package..."
+    
+    # Kiểm tra package có tồn tại không
+    if [ -d "/storage/emulated/0/Android/data/vip.delta.lite.samehwid.maio" ]; then
+        echo "✅ ĐÃ TÌM THẤY PACKAGE!"
+        log "✅ Đã tìm thấy package: vip.delta.lite.samehwid.maio"
+        send_discord "✅ Đã tìm thấy Delta package!"
+        PACKAGE_FOUND=1
+        break
+    else
+        echo "⏳ Chưa có package, kiểm tra lại sau 5 giây..."
+        sleep 5
+    fi
+done
+
+echo ""
+echo "✅ Package đã được tạo! Tiếp tục setup..."
+echo ""
 
 # ============================================
 # PHASE 3: CÀY 2 SCRIPT VÀO DELTA
@@ -93,11 +115,9 @@ send_discord "⚙️ Đang cài script..."
 
 mkdir -p "$DELTA_AUTOEXEC"
 
-# Copy script từ Download
 [ -f "$DOWNLOAD/yumy.txt" ] && cp "$DOWNLOAD/yumy.txt" "$DELTA_AUTOEXEC/"
 [ -f "$DOWNLOAD/kaitun (2).txt" ] && cp "$DOWNLOAD/kaitun (2).txt" "$DELTA_AUTOEXEC/"
 
-# Tạo autoexecute.lua
 cat > "$DELTA_AUTOEXEC/autoexecute.lua" << 'EOF'
 -- ===== AUTO EXECUTE SCRIPT =====
 loadstring(game:HttpGet("https://raw.githubusercontent.com/..."))()
@@ -112,7 +132,6 @@ send_discord "✅ Script đã được cài"
 log "[4/6] Khởi động webhook..."
 send_discord "🍪 **Gửi cookie vào đây!**"
 
-# Chạy webhook bằng Python (không cần Flask)
 nohup python3 -c "
 import os, json, socket, threading, time, requests
 
@@ -156,6 +175,7 @@ while True:
 
 WEBHOOK_PID=$!
 log "✅ Webhook đang chạy (PID: $WEBHOOK_PID)"
+sleep 2
 
 # ============================================
 # PHASE 5: CHỜ COOKIE
@@ -215,16 +235,23 @@ log "🔄 Mở lại Roblox..."
 sleep 3
 
 # Xóa tab cũ
-adb shell input keyevent KEYCODE_APP_SWITCH
+input keyevent KEYCODE_APP_SWITCH
 sleep 1
-adb shell input keyevent KEYCODE_DPAD_DOWN
+input keyevent KEYCODE_DPAD_DOWN
 sleep 1
-adb shell input keyevent KEYCODE_ENTER
+input keyevent KEYCODE_ENTER
 sleep 1
-adb shell input keyevent KEYCODE_BACK
+input keyevent KEYCODE_BACK
 
-# Mở Roblox
-am start -n com.roblox.client/.activity
+# Mở Roblox bằng package đã tìm thấy
+if [ -d "/storage/emulated/0/Android/data/vip.delta.lite.samehwid.maio" ]; then
+    log "📱 Mở Roblox bằng Delta package..."
+    monkey -p vip.delta.lite.samehwid.maio -c android.intent.category.LAUNCHER 1
+else
+    log "⚠️ Không tìm thấy Delta package, mở bằng am start..."
+    am start -n com.roblox.client/.activity
+fi
+
 sleep 10
 
 # ============================================
