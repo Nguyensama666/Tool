@@ -193,34 +193,28 @@ log "✅ Đã gửi lệnh login!"
 # ============================================
 # ============================================
 # ============================================
-# PHASE 6: MỞ LẠI ROBLOX VÀ VÀO BLOX FRUIT
 # ============================================
-log "[6/6] Mở lại Roblox và vào Blox Fruit..."
-sleep 3
+# PHASE 6: RESTART ROBLOX + VÀO BLOX FRUIT
+# ============================================
+log "[6/6] Restart Roblox và vào Blox Fruit..."
 
-# TẮT HẲN ROBLOX (Thay vì xóa tab)
-if [ -d "/storage/emulated/0/Android/data/vip.delta.lite.samehwid.maio" ]; then
-    log "🔴 Tắt Roblox (Delta package)..."
-    am force-stop vip.delta.lite.samehwid.maio
-else
-    log "🔴 Tắt Roblox (gốc)..."
-    am force-stop com.roblox.client
-fi
+PACKAGE="vip.delta.lite.samehwid.maio"
+PLACE_ID="2753915549"
 
+log "📦 Package: $PACKAGE"
+log "🎮 Place ID: $PLACE_ID"
+
+# 🔴 TẮT ROBLOX (Force Stop với quyền root)
+log "🔴 Tắt Roblox..."
+su -c "am force-stop $PACKAGE"
 sleep 2
 
-# MỞ LẠI ROBLOX VÀ VÀO BLOX FRUIT
-if [ -d "/storage/emulated/0/Android/data/vip.delta.lite.samehwid.maio" ]; then
-    log "📱 Mở Roblox bằng Delta package vào Blox Fruit..."
-    am start -a android.intent.action.VIEW -d "roblox://placeId=2753915549" -n vip.delta.lite.samehwid.maio/.Activity 2>/dev/null || \
-    monkey -p vip.delta.lite.samehwid.maio -c android.intent.category.LAUNCHER 1
-else
-    log "📱 Mở Roblox thường vào Blox Fruit..."
-    am start -a android.intent.action.VIEW -d "roblox://placeId=2753915549" -n com.roblox.client/.Activity
-fi
+# 🔄 MỞ LẠI ROBLOX VÀO BLOX FRUIT
+log "🔄 Mở lại Roblox vào Blox Fruit..."
+su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000"
 
 sleep 10
-log "✅ Đã vào Blox Fruit!"
+log "✅ Đã Restart Roblox và vào Blox Fruit!"
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
