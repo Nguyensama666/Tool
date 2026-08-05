@@ -157,18 +157,34 @@ cd "$DOWNLOAD"
 expect << EOF
 set timeout 30
 spawn su -c "export PATH=$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download && python obf-wuyx_rejoin.py"
+
+# 2 - Setup package
 expect "*: " { send "2\r" }
 sleep 2
-expect "*: " { send "6\r" }
+
+# 5 - Setup id game
+expect "*: " { send "5\r" }
 sleep 2
+
+# 0 - Exit (thoát menu con)
 expect "*: " { send "0\r" }
+sleep 1
+# 👇 THÊM ENTER ĐỂ XÁC NHẬN QUAY LẠI MENU CHÍNH
+send "\r"
 sleep 2
+
+# 8 - Get cookie
 expect "*: " { send "8\r" }
 sleep 2
+
+# 2 - Chọn file
 expect "*: " { send "2\r" }
 sleep 2
+
+# t.txt - Chọn file cookie
 expect "*: " { send "t.txt\r" }
 sleep 2
+
 expect eof
 EOF
 
