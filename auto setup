@@ -47,9 +47,8 @@ log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
 # ============================================
 log "[1/6] Chạy Tool 1 & Tool 2..."
 
-# Tool 1
-curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
-
+# Tool 1 - Tự động ấn y cho toàn bộ quá trình
+yes | curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
 # Tool 2
 bash <(curl https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
 
