@@ -242,7 +242,7 @@ expect "*: " { send "2\r" }
 sleep 2
 
 # 5 - Setup id game
-expect "*: " { send "5\r" }
+expect "*: " { send "1\r" }
 sleep 2
 
 # 0 - Exit (thoát menu con)
