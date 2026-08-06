@@ -8,6 +8,73 @@ echo "    🤖 AUTO ROBLOX - DÁN COOKIE VÀO TERMUX"
 echo "═══════════════════════════════════════════════"
 echo ""
 
+# ============================================================
+# 🛠️ PHẦN CẤU HÌNH (BẠN CÓ THỂ TÙY CHỈNH)
+# ============================================================
+
+# ---- PACKAGE ROBLOX ----
+# Thay đổi package của Roblox bạn đang dùng
+# Mặc định: vip.delta.lite.samehwid.maio (Delta Same HWID)
+PACKAGE="vip.delta.lite.samehwid.maio"
+# PACKAGE="com.roblox.client"          # Roblox gốc
+# PACKAGE="com.roblox.mod"             # Roblox mod khác
+
+# ---- PLACE ID (ID GAME) ----
+# Thay đổi ID game muốn vào
+# Blox Fruit: 2753915549
+# King Legacy: 4520749081
+# Anime Adventures: 6662492220
+PLACE_ID="2753915549"
+
+# ---- COOKIE FILE ----
+# Tên file lưu cookie (mặc định: t.txt)
+COOKIE_FILE_NAME="t.txt"
+
+# ---- DELTA SCRIPT FILES ----
+# Tên các script sẽ copy vào Delta Autoexecute
+DELTA_SCRIPT_1="yumy.txt"
+DELTA_SCRIPT_2="kaitun (2).txt"
+
+# ---- AUTOEXECUTE SCRIPT ----
+# Script sẽ được tạo trong autoexecute.lua
+# Bạn có thể thay link script của mình vào đây
+AUTOEXECUTE_SCRIPT='
+-- ===== AUTO EXECUTE SCRIPT =====
+-- Thay link script của bạn vào đây
+loadstring(game:HttpGet("https://raw.githubusercontent.com/..."))()
+'
+
+# ---- THỜI GIAN CHỜ (GIÂY) ----
+WAIT_ROBLOX_OPEN=15      # Thời gian chờ Roblox mở lần đầu
+WAIT_PACKAGE_CHECK=5     # Thời gian giữa các lần kiểm tra package
+WAIT_AFTER_LOGIN=10      # Thời gian chờ sau khi login
+WAIT_RESTART=2           # Thời gian chờ khi restart
+
+# ---- TIẾN TRÌNH NỀN ----
+# Bật/Tắt chạy tool trong nền (true/false)
+RUN_IN_BACKGROUND="true"
+
+# ---- LOGGING ----
+# Bật/Tắt ghi log (true/false)
+ENABLE_LOGGING="true"
+
+# ============================================================
+# KẾT THÚC PHẦN CẤU HÌNH
+# ============================================================
+
+# ====== THAM SỐ TỪ CONFIG ======
+DOWNLOAD="/sdcard/Download"
+DELTA_AUTOEXEC="/storage/emulated/0/Delta/Autoexecute"
+COOKIE_FILE="$DOWNLOAD/$COOKIE_FILE_NAME"
+LOG_FILE="$DOWNLOAD/ultimate_log.txt"
+
+# ====== HÀM LOG ======
+log() {
+    if [ "$ENABLE_LOGGING" = "true" ]; then
+        echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    fi
+}
+
 # ====== CÀI ĐẶT MÔI TRƯỜNG ======
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 
@@ -34,18 +101,10 @@ termux-setup-storage
 echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
 echo ""
 
-# ====== THAM SỐ ======
-DOWNLOAD="/sdcard/Download"
-DELTA_AUTOEXEC="/storage/emulated/0/Delta/Autoexecute"
-COOKIE_FILE="$DOWNLOAD/t.txt"
-LOG_FILE="$DOWNLOAD/ultimate_log.txt"
-
-# ====== HÀM LOG ======
-log() {
-    echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG_FILE"
-}
-
 log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
+log "📦 Package: $PACKAGE"
+log "🎮 Place ID: $PLACE_ID"
+log "🍪 Cookie file: $COOKIE_FILE_NAME"
 
 # ============================================
 # PHASE 1: TOOL 1 + TOOL 2
@@ -53,7 +112,12 @@ log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
 log "[1/6] Chạy Tool 1 & Tool 2..."
 
 # Tool 1 - Tự động ấn y cho toàn bộ quá trình
-yes | curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+if [ "$RUN_IN_BACKGROUND" = "true" ]; then
+    yes | curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+else
+    yes | curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3
+fi
+
 # Tool 2
 bash <(curl https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
 
@@ -69,9 +133,9 @@ echo "    👆 VUI LÒNG MỞ ROBLOX BẰNG TAY"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "📱 Hãy ấn vào icon Roblox trên màn hình"
-echo "⏳ Script sẽ tự động kiểm tra package mỗi 5 giây"
+echo "⏳ Script sẽ tự động kiểm tra package mỗi $WAIT_PACKAGE_CHECK giây"
 echo ""
-echo "📦 Package cần tìm: vip.delta.lite.samehwid.maio"
+echo "📦 Package cần tìm: $PACKAGE"
 echo ""
 
 log "[2/6] CHỜ BẠN MỞ ROBLOX BẰNG TAY..."
@@ -84,14 +148,14 @@ while [ $PACKAGE_FOUND -eq 0 ]; do
     CHECK_COUNT=$((CHECK_COUNT + 1))
     echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra package..."
     
-    if [ -d "/storage/emulated/0/Android/data/vip.delta.lite.samehwid.maio" ]; then
+    if [ -d "/storage/emulated/0/Android/data/$PACKAGE" ]; then
         echo "✅ ĐÃ TÌM THẤY PACKAGE!"
-        log "✅ Đã tìm thấy package: vip.delta.lite.samehwid.maio"
+        log "✅ Đã tìm thấy package: $PACKAGE"
         PACKAGE_FOUND=1
         break
     else
-        echo "⏳ Chưa có package, kiểm tra lại sau 5 giây..."
-        sleep 5
+        echo "⏳ Chưa có package, kiểm tra lại sau $WAIT_PACKAGE_CHECK giây..."
+        sleep $WAIT_PACKAGE_CHECK
     fi
 done
 
@@ -100,21 +164,32 @@ echo "✅ Package đã được tạo! Tiếp tục setup..."
 echo ""
 
 # ============================================
-# PHASE 3: CÀY 2 SCRIPT VÀO DELTA
+# PHASE 3: CÀY SCRIPT VÀO DELTA
 # ============================================
 log "[3/6] Cày script vào Delta..."
 
 mkdir -p "$DELTA_AUTOEXEC"
 
-[ -f "$DOWNLOAD/yumy.txt" ] && cp "$DOWNLOAD/yumy.txt" "$DELTA_AUTOEXEC/"
-[ -f "$DOWNLOAD/kaitun (2).txt" ] && cp "$DOWNLOAD/kaitun (2).txt" "$DELTA_AUTOEXEC/"
+# Copy script 1
+if [ -f "$DOWNLOAD/$DELTA_SCRIPT_1" ]; then
+    cp "$DOWNLOAD/$DELTA_SCRIPT_1" "$DELTA_AUTOEXEC/"
+    log "✅ Đã copy $DELTA_SCRIPT_1"
+else
+    log "⚠️ Không tìm thấy $DELTA_SCRIPT_1"
+fi
 
-cat > "$DELTA_AUTOEXEC/autoexecute.lua" << 'EOF'
--- ===== AUTO EXECUTE SCRIPT =====
-loadstring(game:HttpGet("https://raw.githubusercontent.com/..."))()
-EOF
+# Copy script 2
+if [ -f "$DOWNLOAD/$DELTA_SCRIPT_2" ]; then
+    cp "$DOWNLOAD/$DELTA_SCRIPT_2" "$DELTA_AUTOEXEC/"
+    log "✅ Đã copy $DELTA_SCRIPT_2"
+else
+    log "⚠️ Không tìm thấy $DELTA_SCRIPT_2"
+fi
 
-log "✅ Đã cày 2 script vào Autoexecute"
+# Tạo autoexecute.lua
+echo "$AUTOEXECUTE_SCRIPT" > "$DELTA_AUTOEXEC/autoexecute.lua"
+
+log "✅ Đã cày script vào Autoexecute"
 
 # ============================================
 # PHASE 4: NHẬP COOKIE TRỰC TIẾP VÀO TERMUX
@@ -143,7 +218,7 @@ if [ $COOKIE_LEN -lt 50 ]; then
     exit 1
 fi
 
-# Lưu cookie vào file t.txt
+# Lưu cookie vào file
 echo "$COOKIE" > "$COOKIE_FILE"
 
 echo ""
@@ -173,7 +248,6 @@ sleep 2
 # 0 - Exit (thoát menu con)
 expect "*: " { send "0\r" }
 sleep 1
-# 👇 THÊM ENTER ĐỂ XÁC NHẬN QUAY LẠI MENU CHÍNH
 send "\r"
 sleep 2
 
@@ -185,8 +259,8 @@ sleep 2
 expect "*: " { send "2\r" }
 sleep 2
 
-# t.txt - Chọn file cookie
-expect "*: " { send "t.txt\r" }
+# Chọn file cookie (dùng tên từ config)
+expect "*: " { send "$COOKIE_FILE_NAME\r" }
 sleep 2
 
 expect eof
@@ -195,15 +269,9 @@ EOF
 log "✅ Đã gửi lệnh login!"
 
 # ============================================
-# ============================================
-# ============================================
-# ============================================
 # PHASE 6: RESTART ROBLOX + VÀO BLOX FRUIT
 # ============================================
 log "[6/6] Restart Roblox và vào Blox Fruit..."
-
-PACKAGE="vip.delta.lite.samehwid.maio"
-PLACE_ID="2753915549"
 
 log "📦 Package: $PACKAGE"
 log "🎮 Place ID: $PLACE_ID"
@@ -211,14 +279,15 @@ log "🎮 Place ID: $PLACE_ID"
 # 🔴 TẮT ROBLOX (Force Stop với quyền root)
 log "🔴 Tắt Roblox..."
 su -c "am force-stop $PACKAGE"
-sleep 2
+sleep $WAIT_RESTART
 
 # 🔄 MỞ LẠI ROBLOX VÀO BLOX FRUIT
 log "🔄 Mở lại Roblox vào Blox Fruit..."
 su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000"
 
-sleep 10
+sleep $WAIT_AFTER_LOGIN
 log "✅ Đã Restart Roblox và vào Blox Fruit!"
+
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
@@ -226,5 +295,7 @@ echo "════════════════════════�
 echo ""
 echo "📊 Log: $LOG_FILE"
 echo "🍪 Cookie: $COOKIE_FILE"
+echo "📦 Package: $PACKAGE"
+echo "🎮 Place ID: $PLACE_ID"
 echo "⏱️  Thời gian: ~3 phút"
 echo ""
