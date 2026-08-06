@@ -15,7 +15,7 @@ echo ""
 # ---- PACKAGE ROBLOX ----
 # Thay đổi package của Roblox bạn đang dùng
 # Mặc định: vip.delta.lite.samehwid.maio (Delta Same HWID)
-PACKAGE="vip.delta.lite.samehwid.maio"
+PACKAGE="free.noka9"
 # PACKAGE="com.roblox.client"          # Roblox gốc
 # PACKAGE="com.roblox.mod"             # Roblox mod khác
 
@@ -33,7 +33,7 @@ COOKIE_FILE_NAME="t.txt"
 # ---- DELTA SCRIPT FILES ----
 # Tên các script sẽ copy vào Delta Autoexecute
 DELTA_SCRIPT_1="yumy.txt"
-DELTA_SCRIPT_2="kaitun (2).txt"
+DELTA_SCRIPT_2="3nn v4.txt"
 
 # ---- AUTOEXECUTE SCRIPT ----
 # Script sẽ được tạo trong autoexecute.lua
