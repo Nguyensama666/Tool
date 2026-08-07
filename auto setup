@@ -107,15 +107,16 @@ log "🎮 Place ID: $PLACE_ID"
 log "🍪 Cookie file: $COOKIE_FILE_NAME"
 
 # ============================================
+# ============================================
 # PHASE 1: TOOL 1 + TOOL 2
 # ============================================
 log "[1/6] Chạy Tool 1 & Tool 2..."
 
-# Tool 1 - Tự động ấn y cho toàn bộ quá trình
-yes | pkg update -y && yes | pkg install -y python && pip install -q requests && termux-setup-storage && curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+# Tool 1 - Tải và chạy trực tiếp (thêm -L để follow redirect)
+curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
 
-# Tool 2
-bash <(curl https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
+# Tool 2 - Tải và chạy
+bash <(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
 
 wait
 log "✅ Tool 1 & 2 hoàn tất!"
