@@ -43,7 +43,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/..."))()
 # ---- THỜI GIAN CHỜ (GIÂY) ----
 WAIT_ROBLOX_OPEN=15      # Thời gian chờ Roblox mở lần đầu
 WAIT_PACKAGE_CHECK=5     # Thời gian giữa các lần kiểm tra package
-WAIT_AFTER_LOGIN=10      # Thời gian chờ sau khi login
+WAIT_AFTER_LOGIN=5      # Thời gian chờ sau khi login
 WAIT_RESTART=2           # Thời gian chờ khi restart
 
 # ---- TIẾN TRÌNH NỀN ----
@@ -232,7 +232,7 @@ expect "*: " { send "2\r" }
 sleep 2
 
 # 5 - Setup id game
-expect "*: " { send "5\r" }
+expect "*: " { send "1\r" }
 sleep 2
 
 # 0 - Exit (thoát menu con)
