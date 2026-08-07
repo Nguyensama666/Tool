@@ -12,18 +12,13 @@ echo ""
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 
 echo "[1/5] Cập nhật Termux..."
-# Xóa file cấu hình cũ để tránh hỏi
-rm -f /data/data/com.termux/files/usr/etc/apt/sources.list
-echo "deb https://packages.termux.org/apt/termux-main stable main" > /data/data/com.termux/files/usr/etc/apt/sources.list
-
-# Update và upgrade (ép buộc yes)
-apt update -y && apt upgrade -y
+pkg update -y && pkg upgrade -y
 
 echo "[2/5] Cài Python..."
-apt install -y python python-pip
+pkg install -y python python-pip
 
 echo "[3/5] Cài gói cần thiết..."
-apt install -y curl wget git expect termux-api openssl
+pkg install -y curl wget git expect termux-api openssl
 
 echo "[4/5] Cài Python packages..."
 pip install -q requests
