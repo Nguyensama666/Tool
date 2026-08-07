@@ -1,0 +1,102 @@
+#!/bin/bash
+# ============================================================
+# TOOL AUTO COPY FILE VÀO DELTA AUTOEXECUTE
+# ============================================================
+
+# ============================================================
+# 🛠️ PHẦN CẤU HÌNH (BẠN CÓ THỂ TÙY CHỈNH)
+# ============================================================
+
+# ---- DANH SÁCH FILE CẦN COPY ----
+# Thêm tên file bạn muốn copy vào đây, cách nhau bằng dấu cách
+# File phải nằm trong thư mục /sdcard/Download/
+DELTA_SCRIPT_1="yumy.txt"
+DELTA_SCRIPT_2="kaitun (2).txt"
+DELTA_SCRIPT_3=""
+DELTA_SCRIPT_4=""
+# Thêm DELTA_SCRIPT_5="..." khi cần
+
+# ---- THƯ MỤC ĐÍCH ----
+DELTA_AUTOEXEC="/storage/emulated/0/Delta/Autoexecute"
+
+# ---- THƯ MỤC NGUỒN ----
+DOWNLOAD="/sdcard/Download"
+
+# ============================================================
+# KẾT THÚC PHẦN CẤU HÌNH
+# ============================================================
+
+echo "═══════════════════════════════════════════════"
+echo "    📂 AUTO COPY FILE VÀO DELTA AUTOEXECUTE"
+echo "═══════════════════════════════════════════════"
+echo ""
+
+# ====== TẠO MẢNG FILE TỪ CONFIG ======
+FILES_TO_COPY=()
+[ -n "$DELTA_SCRIPT_1" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_1")
+[ -n "$DELTA_SCRIPT_2" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_2")
+[ -n "$DELTA_SCRIPT_3" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_3")
+[ -n "$DELTA_SCRIPT_4" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_4")
+[ -n "$DELTA_SCRIPT_5" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_5")
+[ -n "$DELTA_SCRIPT_6" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_6")
+[ -n "$DELTA_SCRIPT_7" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_7")
+[ -n "$DELTA_SCRIPT_8" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_8")
+[ -n "$DELTA_SCRIPT_9" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_9")
+[ -n "$DELTA_SCRIPT_10" ] && FILES_TO_COPY+=("$DELTA_SCRIPT_10")
+
+# ====== KIỂM TRA THƯ MỤC ======
+if [ ! -d "$DELTA_AUTOEXEC" ]; then
+    echo "📁 Tạo thư mục Delta Autoexecute..."
+    mkdir -p "$DELTA_AUTOEXEC"
+fi
+
+# ====== XÓA TẤT CẢ FILE CŨ TRONG AUTOEXECUTE ======
+echo "🗑️ Xóa tất cả file cũ trong Autoexecute..."
+rm -rf "$DELTA_AUTOEXEC"/*
+echo "✅ Đã xóa file cũ!"
+
+echo ""
+echo "📋 Danh sách file cần copy:"
+for file in "${FILES_TO_COPY[@]}"; do
+    echo "   - $file"
+done
+echo ""
+
+# ====== COPY FILE MỚI ======
+COPIED=0
+NOT_FOUND=0
+
+for file in "${FILES_TO_COPY[@]}"; do
+    # Loại bỏ khoảng trắng thừa
+    file=$(echo "$file" | xargs)
+    
+    if [ -z "$file" ]; then
+        continue
+    fi
+    
+    SOURCE_FILE="$DOWNLOAD/$file"
+    
+    if [ -f "$SOURCE_FILE" ]; then
+        cp "$SOURCE_FILE" "$DELTA_AUTOEXEC/"
+        echo "✅ Đã copy: $file"
+        COPIED=$((COPIED + 1))
+    else
+        echo "⚠️ Không tìm thấy: $file (trong $DOWNLOAD)"
+        NOT_FOUND=$((NOT_FOUND + 1))
+    fi
+done
+
+# ====== HIỂN THỊ KẾT QUẢ ======
+echo ""
+echo "═══════════════════════════════════════════════"
+echo "    ✅ HOÀN TẤT!"
+echo "═══════════════════════════════════════════════"
+echo ""
+echo "📊 Kết quả:"
+echo "   ✅ Đã copy: $COPIED file"
+echo "   ⚠️ Không tìm thấy: $NOT_FOUND file"
+echo ""
+echo "📂 Thư mục đích: $DELTA_AUTOEXEC"
+echo ""
+echo "📁 Các file hiện có trong Autoexecute:"
+ls -la "$DELTA_AUTOEXEC" 2>/dev/null || echo "   (trống)"
