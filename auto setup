@@ -93,30 +93,19 @@ log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
 log "📦 Package: $PACKAGE"
 log "🎮 Place ID: $PLACE_ID"
 log "🍪 Cookie file: $COOKIE_FILE_NAME"
-
 # ============================================
-# PHASE 1: TOOL 1 + TOOL 2 (FIX LỖI)
+# PHASE 1: TOOL 1 + TOOL 2
 # ============================================
 log "[1/6] Chạy Tool 1 & Tool 2..."
 
-# Tool 1 - Tải trực tiếp và lưu file trước khi chạy
-log "📥 Đang tải Tool 1..."
-curl -s -L -o "$DOWNLOAD/tool1.py" "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)"
+# Tool 1 - Chạy trực tiếp, bỏ yes | và thêm -L
+curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
 
-if [ -f "$DOWNLOAD/tool1.py" ]; then
-    log "✅ Đã tải Tool 1 thành công"
-    python3 "$DOWNLOAD/tool1.py" &
-else
-    log "❌ Lỗi: Không thể tải Tool 1"
-fi
-
-# Tool 2 - Tải và chạy trực tiếp
-log "📥 Đang tải Tool 2..."
-bash -c "$(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh)" &
+# Tool 2
+bash <(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
 
 wait
 log "✅ Tool 1 & 2 hoàn tất!"
-
 # ============================================
 # PHASE 2: CHỜ BẠN MỞ ROBLOX BẰNG TAY
 # ============================================
