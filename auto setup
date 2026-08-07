@@ -84,19 +84,19 @@ rm -f /data/data/com.termux/files/usr/etc/apt/sources.list
 echo "deb https://packages.termux.org/apt/termux-main stable main" > /data/data/com.termux/files/usr/etc/apt/sources.list
 
 # Update và upgrade (ép buộc yes)
-apt update -y && apt upgrade -y
+yes | apt update && yes | apt upgrade -y
 
 echo "[2/5] Cài Python..."
-apt install -y python python-pip
+yes | apt install -y python python-pip
 
 echo "[3/5] Cài gói cần thiết..."
-apt install -y curl wget git expect termux-api openssl
+yes | apt install -y curl wget git expect termux-api openssl
 
 echo "[4/5] Cài Python packages..."
-pip install -q requests
+yes | pip install -q requests
 
 echo "[5/5] Setup storage..."
-termux-setup-storage
+echo "y" | termux-setup-storage
 
 echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
 echo ""
@@ -112,11 +112,7 @@ log "🍪 Cookie file: $COOKIE_FILE_NAME"
 log "[1/6] Chạy Tool 1 & Tool 2..."
 
 # Tool 1 - Tự động ấn y cho toàn bộ quá trình
-if [ "$RUN_IN_BACKGROUND" = "true" ]; then
-    yes | curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
-else
-    yes | curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3
-fi
+curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | yes | python3 &
 
 # Tool 2
 bash <(curl https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
