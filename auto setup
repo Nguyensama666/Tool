@@ -13,8 +13,6 @@ echo ""
 # ============================================================
 
 # ---- PACKAGE ROBLOX ----
-# Thay đổi package của Roblox bạn đang dùng
-# Mặc định: vip.delta.lite.samehwid.maio (Delta Same HWID)
 PACKAGE="free.noka9"
 # PACKAGE="com.roblox.client"          # Roblox gốc
 # PACKAGE="com.roblox.mod"             # Roblox mod khác
@@ -37,10 +35,8 @@ DELTA_SCRIPT_2="3nn v4.txt"
 
 # ---- AUTOEXECUTE SCRIPT ----
 # Script sẽ được tạo trong autoexecute.lua
-# Bạn có thể thay link script của mình vào đây
 AUTOEXECUTE_SCRIPT='
 -- ===== AUTO EXECUTE SCRIPT =====
--- Thay link script của bạn vào đây
 loadstring(game:HttpGet("https://raw.githubusercontent.com/..."))()
 '
 
@@ -51,11 +47,9 @@ WAIT_AFTER_LOGIN=10      # Thời gian chờ sau khi login
 WAIT_RESTART=2           # Thời gian chờ khi restart
 
 # ---- TIẾN TRÌNH NỀN ----
-# Bật/Tắt chạy tool trong nền (true/false)
 RUN_IN_BACKGROUND="true"
 
 # ---- LOGGING ----
-# Bật/Tắt ghi log (true/false)
 ENABLE_LOGGING="true"
 
 # ============================================================
@@ -107,15 +101,14 @@ log "🎮 Place ID: $PLACE_ID"
 log "🍪 Cookie file: $COOKIE_FILE_NAME"
 
 # ============================================
-# ============================================
 # PHASE 1: TOOL 1 + TOOL 2
 # ============================================
 log "[1/6] Chạy Tool 1 & Tool 2..."
 
-# Tool 1 - Tải và chạy trực tiếp (thêm -L để follow redirect)
+# Tool 1 - Tự động ấn y cho toàn bộ quá trình
 curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
 
-# Tool 2 - Tải và chạy
+# Tool 2
 bash <(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
 
 wait
@@ -239,7 +232,7 @@ expect "*: " { send "2\r" }
 sleep 2
 
 # 5 - Setup id game
-expect "*: " { send "1\r" }
+expect "*: " { send "5\r" }
 sleep 2
 
 # 0 - Exit (thoát menu con)
