@@ -1,0 +1,27 @@
+#!/bin/bash
+# ============================================================
+# TOOL GỬI TEXT LÊN DISCORD WEBHOOK (ĐƠN GIẢN)
+# ============================================================
+
+WEBHOOK_URL="https://discord.com/api/webhooks/1534471115479580717/bxvxvIUA2zwvr7qXF01PA4I7QqVRfWi411AzSV46SYPUrRKK10t9gVI9543VYYoxpQUu"
+
+echo "═══════════════════════════════════════════════"
+echo "    📤 GỬI TEXT LÊN DISCORD"
+echo "═══════════════════════════════════════════════"
+echo ""
+echo "📝 Dán nội dung và nhấn Enter (nhập 'exit' để thoát)"
+echo ""
+
+while true; do
+    echo ""
+    read -p "👉 Nội dung: " input
+    
+    [ "$input" = "exit" ] && echo "👋 Tạm biệt!" && break
+    [ -z "$input" ] && echo "❌ Rỗng!" && continue
+    
+    curl -s -X POST "$WEBHOOK_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"content\": \"$(echo "$input" | sed 's/"/\\"/g')\"}"
+    
+    echo "✅ Đã gửi!"
+done
