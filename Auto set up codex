@@ -1,0 +1,308 @@
+#!/bin/bash
+# ============================================================
+# AUTO ROBLOX - DÁN COOKIE TRỰC TIẾP VÀO TERMUX
+# ============================================================
+
+echo "═══════════════════════════════════════════════"
+echo "    🤖 AUTO ROBLOX - DÁN COOKIE VÀO TERMUX"
+echo "═══════════════════════════════════════════════"
+echo ""
+
+# ============================================================
+# 🛠️ PHẦN CẤU HÌNH (BẠN CÓ THỂ TÙY CHỈNH)
+# ============================================================
+
+# ---- PACKAGE ROBLOX ----
+PACKAGE="com.roblox.client"
+# PACKAGE="com.roblox.client"          # Roblox gốc
+# PACKAGE="com.roblox.mod"             # Roblox mod khác
+
+# ---- PLACE ID (ID GAME) ----
+# Thay đổi ID game muốn vào
+# Blox Fruit: 2753915549
+# King Legacy: 4520749081
+# Anime Adventures: 6662492220
+PLACE_ID="2753915549"
+
+# ---- COOKIE FILE ----
+# Tên file lưu cookie (mặc định: t.txt)
+COOKIE_FILE_NAME="t.txt"
+
+# ---- SCRIPT FILES ----
+# Tên các script sẽ copy vào Codex/Autoexec
+SCRIPT_1="yumy.txt"
+SCRIPT_2="kaitun (2).txt"
+
+# ---- THỜI GIAN CHỜ (GIÂY) ----
+WAIT_ROBLOX_OPEN=5
+WAIT_PACKAGE_CHECK=5
+WAIT_AFTER_LOGIN=5
+WAIT_RESTART=2
+WAIT_GAME_LOAD=20  # Thời gian chờ game load sau khi restart
+
+# ---- LOGGING ----
+ENABLE_LOGGING="true"
+
+# ============================================================
+# KẾT THÚC PHẦN CẤU HÌNH
+# ============================================================
+
+# ====== THAM SỐ TỪ CONFIG ======
+DOWNLOAD="/sdcard/Download"
+COOKIE_FILE="$DOWNLOAD/$COOKIE_FILE_NAME"
+LOG_FILE="$DOWNLOAD/ultimate_log.txt"
+CODEX_AUTOEXEC="/storage/emulated/0/Codex/Autoexec"
+
+# ====== HÀM LOG ======
+log() {
+    if [ "$ENABLE_LOGGING" = "true" ]; then
+        echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    fi
+}
+
+# ====== CÀI ĐẶT MÔI TRƯỜNG ======
+echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
+
+echo "[1/5] Cập nhật Termux..."
+yes | pkg update && yes | pkg upgrade -y
+
+echo "[2/5] Cài Python..."
+yes | pkg install -y python python-pip
+
+echo "[3/5] Cài gói cần thiết..."
+yes | pkg install -y curl wget git expect termux-api openssl
+
+echo "[4/5] Cài Python packages..."
+yes | pip install -q requests
+
+echo "[5/5] Setup storage..."
+echo "y" | termux-setup-storage
+
+echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
+echo ""
+
+log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
+log "📦 Package: $PACKAGE"
+log "🎮 Place ID: $PLACE_ID"
+log "🍪 Cookie file: $COOKIE_FILE_NAME"
+
+# ============================================
+# PHASE 1: TOOL 1 + TOOL 2
+# ============================================
+log "[1/7] Chạy Tool 1 & Tool 2..."
+
+# Tool 1 - Tự động ấn y cho toàn bộ quá trình (thêm -L)
+yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+
+# Tool 2 (thêm -L)
+bash <(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
+
+wait
+log "✅ Tool 1 & 2 hoàn tất!"
+
+# ============================================
+# PHASE 2: CHỜ BẠN MỞ ROBLOX BẰNG TAY
+# ============================================
+echo ""
+echo "═══════════════════════════════════════════════"
+echo "    👆 VUI LÒNG MỞ ROBLOX BẰNG TAY"
+echo "═══════════════════════════════════════════════"
+echo ""
+echo "📱 Hãy ấn vào icon Roblox trên màn hình"
+echo "⏳ Script sẽ tự động kiểm tra package mỗi $WAIT_PACKAGE_CHECK giây"
+echo ""
+echo "📦 Package cần tìm: $PACKAGE"
+echo ""
+
+log "[2/7] CHỜ BẠN MỞ ROBLOX BẰNG TAY..."
+
+PACKAGE_FOUND=0
+CHECK_COUNT=0
+
+while [ $PACKAGE_FOUND -eq 0 ]; do
+    CHECK_COUNT=$((CHECK_COUNT + 1))
+    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra package..."
+    
+    if [ -d "/storage/emulated/0/Android/data/$PACKAGE" ]; then
+        echo "✅ ĐÃ TÌM THẤY PACKAGE!"
+        log "✅ Đã tìm thấy package: $PACKAGE"
+        PACKAGE_FOUND=1
+        break
+    else
+        echo "⏳ Chưa có package, kiểm tra lại sau $WAIT_PACKAGE_CHECK giây..."
+        sleep $WAIT_PACKAGE_CHECK
+    fi
+done
+
+echo ""
+echo "✅ Package đã được tạo! Tiếp tục setup..."
+echo ""
+
+# ============================================
+# PHASE 3: NHẬP COOKIE TRỰC TIẾP VÀO TERMUX
+# ============================================
+echo ""
+echo "═══════════════════════════════════════════════"
+echo "    🍪 DÁN COOKIE VÀO ĐÂY"
+echo "═══════════════════════════════════════════════"
+echo ""
+echo "📝 Hãy dán cookie Roblox vào dưới đây và nhấn Enter:"
+echo ""
+
+log "[3/7] CHỜ NHẬP COOKIE TRỰC TIẾP..."
+
+# Đọc cookie từ input trực tiếp
+read -p "👉 Dán cookie vào đây: " COOKIE
+
+# Kiểm tra cookie
+COOKIE_LEN=$(echo -n "$COOKIE" | wc -c)
+
+if [ $COOKIE_LEN -lt 50 ]; then
+    echo ""
+    echo "❌ Cookie quá ngắn ($COOKIE_LEN ký tự)"
+    echo "📝 Vui lòng kiểm tra lại cookie và thử lại"
+    log "❌ Cookie quá ngắn ($COOKIE_LEN ký tự)"
+    exit 1
+fi
+
+# Lưu cookie vào file
+echo "$COOKIE" > "$COOKIE_FILE"
+
+echo ""
+echo "✅ Đã nhận cookie! (Độ dài: $COOKIE_LEN ký tự)"
+echo "✅ Đã lưu vào file: $COOKIE_FILE"
+log "✅ Đã nhận cookie! (Độ dài: $COOKIE_LEN ký tự)"
+
+# ============================================
+# PHASE 4: LOGIN
+# ============================================
+log "[4/7] Đang login Roblox..."
+
+cd "$DOWNLOAD"
+
+expect << EOF
+set timeout 30
+spawn su -c "export PATH=$PATH:/data/data/com.termux/files/usr/bin && export TERM=xterm-256color && cd /sdcard/Download && python obf-wuyx_rejoin.py"
+
+# 2 - Setup package
+expect "*: " { send "2\r" }
+sleep 2
+
+# 5 - Setup id game
+expect "*: " { send "1\r" }
+sleep 2
+
+# 0 - Exit (thoát menu con)
+expect "*: " { send "0\r" }
+sleep 1
+send "\r"
+sleep 2
+
+# 8 - Get cookie
+expect "*: " { send "8\r" }
+sleep 2
+
+# 2 - Chọn file
+expect "*: " { send "2\r" }
+sleep 2
+
+# Chọn file cookie (dùng tên từ config)
+expect "*: " { send "$COOKIE_FILE_NAME\r" }
+sleep 2
+
+expect eof
+EOF
+
+log "✅ Đã gửi lệnh login!"
+
+# ============================================
+# PHASE 5: RESTART ROBLOX + VÀO GAME
+# ============================================
+log "[5/7] Restart Roblox và vào game..."
+
+log "📦 Package: $PACKAGE"
+log "🎮 Place ID: $PLACE_ID"
+
+# 🔴 TẮT ROBLOX (Force Stop với quyền root)
+log "🔴 Tắt Roblox..."
+su -c "am force-stop $PACKAGE"
+sleep $WAIT_RESTART
+
+# 🔄 MỞ LẠI ROBLOX VÀO GAME
+log "🔄 Mở lại Roblox vào game..."
+su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000"
+
+log "⏳ Chờ $WAIT_GAME_LOAD giây để game load..."
+sleep $WAIT_GAME_LOAD
+
+log "✅ Đã Restart Roblox và vào game!"
+
+# ============================================
+# PHASE 6: COPY SCRIPT VÀO CODEX/AUTOEXEC
+# ============================================
+log "[6/7] Copy script vào Codex/Autoexec..."
+
+# Tạo thư mục Codex/Autoexec nếu chưa tồn tại
+mkdir -p "$CODEX_AUTOEXEC"
+
+# Kiểm tra và copy script 1
+if [ -f "$DOWNLOAD/$SCRIPT_1" ]; then
+    cp "$DOWNLOAD/$SCRIPT_1" "$CODEX_AUTOEXEC/"
+    if [ $? -eq 0 ]; then
+        log "✅ Đã copy $SCRIPT_1 vào Codex/Autoexec"
+    else
+        log "❌ Lỗi khi copy $SCRIPT_1"
+    fi
+else
+    log "⚠️ Không tìm thấy $SCRIPT_1 trong Download"
+    echo "⚠️ Không tìm thấy file: $DOWNLOAD/$SCRIPT_1"
+fi
+
+# Kiểm tra và copy script 2
+if [ -f "$DOWNLOAD/$SCRIPT_2" ]; then
+    cp "$DOWNLOAD/$SCRIPT_2" "$CODEX_AUTOEXEC/"
+    if [ $? -eq 0 ]; then
+        log "✅ Đã copy $SCRIPT_2 vào Codex/Autoexec"
+    else
+        log "❌ Lỗi khi copy $SCRIPT_2"
+    fi
+else
+    log "⚠️ Không tìm thấy $SCRIPT_2 trong Download"
+    echo "⚠️ Không tìm thấy file: $DOWNLOAD/$SCRIPT_2"
+fi
+
+# Hiển thị danh sách file trong Codex/Autoexec
+log "📂 Các file trong Codex/Autoexec:"
+ls -la "$CODEX_AUTOEXEC" | tee -a "$LOG_FILE"
+
+log "✅ Đã hoàn tất copy script vào Codex/Autoexec!"
+
+# ============================================
+# PHASE 7: HOÀN TẤT
+# ============================================
+log "[7/7] Hoàn tất quá trình!"
+
+echo ""
+echo "═══════════════════════════════════════════════"
+echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
+echo "═══════════════════════════════════════════════"
+echo ""
+echo "📊 Log: $LOG_FILE"
+echo "🍪 Cookie: $COOKIE_FILE"
+echo "📦 Package: $PACKAGE"
+echo "🎮 Place ID: $PLACE_ID"
+echo "📁 Codex Autoexec: $CODEX_AUTOEXEC"
+echo "⏱️  Thời gian chờ game load: $WAIT_GAME_LOAD giây"
+echo ""
+echo "📝 Script đã được copy:"
+if [ -f "$CODEX_AUTOEXEC/$SCRIPT_1" ]; then
+    echo "   ✅ $SCRIPT_1"
+else
+    echo "   ❌ $SCRIPT_1 (không tìm thấy)"
+fi
+if [ -f "$CODEX_AUTOEXEC/$SCRIPT_2" ]; then
+    echo "   ✅ $SCRIPT_2"
+else
+    echo "   ❌ $SCRIPT_2 (không tìm thấy)"
+fi
+echo ""
