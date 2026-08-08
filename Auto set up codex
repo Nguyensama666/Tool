@@ -281,7 +281,20 @@ log "✅ Đã hoàn tất copy script vào Codex/Autoexec!"
 # PHASE 7: HOÀN TẤT
 # ============================================
 log "[7/7] Hoàn tất quá trình!"
+# ============================================
+# PHASE 8: CHẠY SCRIPT BỔ SUNG
+# ============================================
+log "[8/8] Đang chạy script bổ sung từ gist..."
 
+# Chạy script và ghi log
+bash <(curl -fsSL https://gist.githubusercontent.com/zam2109/91b5882023083cc73262eff796e1e31d/raw/2010a27aee4bfa0648dc1837e2c9731dd4c99df0/gistfile1.txt) 2>&1 | tee -a "$LOG_FILE"
+
+# Kiểm tra kết quả
+if [ ${PIPESTATUS[0]} -eq 0 ]; then
+    log "✅ Script bổ sung chạy thành công!"
+else
+    log "❌ Script bổ sung chạy thất bại!"
+fi
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
