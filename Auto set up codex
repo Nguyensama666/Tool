@@ -39,6 +39,7 @@ WAIT_PACKAGE_CHECK=5
 WAIT_AFTER_LOGIN=5
 WAIT_RESTART=2
 WAIT_GAME_LOAD=20  # Thời gian chờ game load sau khi restart
+MAX_RETRY=3        # Số lần retry tối đa
 
 # ---- LOGGING ----
 ENABLE_LOGGING="true"
@@ -52,12 +53,36 @@ DOWNLOAD="/sdcard/Download"
 COOKIE_FILE="$DOWNLOAD/$COOKIE_FILE_NAME"
 LOG_FILE="$DOWNLOAD/ultimate_log.txt"
 CODEX_AUTOEXEC="/storage/emulated/0/Codex/Autoexec"
+MT_APK="MT_2.26.2.apk"
 
 # ====== HÀM LOG ======
 log() {
     if [ "$ENABLE_LOGGING" = "true" ]; then
         echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG_FILE"
     fi
+}
+
+# ====== HÀM KIỂM TRA FILE MT_2.26.2.apk ======
+check_mt_apk() {
+    if [ -f "$DOWNLOAD/$MT_APK" ]; then
+        return 0  # Tìm thấy file
+    else
+        return 1  # Không tìm thấy
+    fi
+}
+
+# ====== HÀM CHẠY TOOL 1 & 2 ======
+run_tools() {
+    log "🔄 Đang chạy Tool 1 & Tool 2..."
+    
+    # Tool 1 - Tự động ấn y cho toàn bộ quá trình (thêm -L)
+    yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+    
+    # Tool 2 (thêm -L)
+    bash <(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
+    
+    wait
+    log "✅ Tool 1 & 2 đã chạy xong!"
 }
 
 # ====== CÀI ĐẶT MÔI TRƯỜNG ======
@@ -84,18 +109,59 @@ log "🎮 Place ID: $PLACE_ID"
 log "🍪 Cookie file: $COOKIE_FILE_NAME"
 
 # ============================================
-# PHASE 1: TOOL 1 + TOOL 2
+# PHASE 1: TOOL 1 + TOOL 2 (VỚI RETRY)
 # ============================================
-log "[1/8] Chạy Tool 1 & Tool 2..."
+log "[1/8] Chạy Tool 1 & Tool 2 (có retry)..."
 
-# Tool 1 - Tự động ấn y cho toàn bộ quá trình (thêm -L)
-yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+# Kiểm tra file MT_2.26.2.apk trước khi chạy
+RETRY_COUNT=0
+TOOL_SUCCESS=0
 
-# Tool 2 (thêm -L)
-bash <(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
+while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo ""
+    echo "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
+    log "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
+    
+    # Chạy tools
+    run_tools
+    
+    # Kiểm tra sau khi chạy
+    if check_mt_apk; then
+        echo "✅ Đã tìm thấy $MT_APK trong Download!"
+        log "✅ Đã tìm thấy $MT_APK trong Download!"
+        TOOL_SUCCESS=1
+        break
+    else
+        echo "⚠️ Chưa tìm thấy $MT_APK trong Download"
+        log "⚠️ Chưa tìm thấy $MT_APK trong Download"
+        
+        if [ $RETRY_COUNT -lt $MAX_RETRY ]; then
+            echo "⏳ Chờ 5 giây rồi thử lại..."
+            log "⏳ Chờ 5 giây rồi thử lại..."
+            sleep 5
+        fi
+    fi
+done
 
-wait
-log "✅ Tool 1 & 2 hoàn tất!"
+# Kiểm tra kết quả cuối cùng
+if [ $TOOL_SUCCESS -eq 1 ]; then
+    log "✅ Tool 1 & 2 hoàn tất thành công!"
+    echo "✅ Tool 1 & 2 hoàn tất thành công!"
+else
+    log "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
+    echo "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
+    echo "📝 Bạn có thể tự tải $MT_APK và đặt vào $DOWNLOAD"
+    echo "⏳ Script vẫn tiếp tục..."
+    
+    # Hỏi người dùng có muốn tiếp tục không
+    read -p "👉 Bạn có muốn tiếp tục không? (y/n): " CONTINUE
+    if [[ ! "$CONTINUE" =~ ^[Yy]$ ]]; then
+        echo "❌ Đã hủy script!"
+        log "❌ Người dùng hủy script"
+        exit 1
+    fi
+fi
 
 # ============================================
 # PHASE 2: CHỜ BẠN MỞ ROBLOX BẰNG TAY
