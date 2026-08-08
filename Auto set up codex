@@ -63,19 +63,16 @@ log() {
 # ====== CÀI ĐẶT MÔI TRƯỜNG ======
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 
-echo "[1/5] Cập nhật Termux..."
+echo "[1/4] Cập nhật Termux..."
 yes | pkg update && yes | pkg upgrade -y
 
-echo "[2/5] Cài Python..."
+echo "[2/4] Cài Python..."
 yes | pkg install -y python python-pip
 
-echo "[3/5] Cài gói cần thiết..."
+echo "[3/4] Cài gói cần thiết..."
 yes | pkg install -y curl wget git expect termux-api openssl
 
-echo "[4/5] Cài Python packages..."
-yes | pip install -q requests
-
-echo "[5/5] Setup storage..."
+echo "[4/4] Setup storage..."
 echo "y" | termux-setup-storage
 
 echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
@@ -89,7 +86,7 @@ log "🍪 Cookie file: $COOKIE_FILE_NAME"
 # ============================================
 # PHASE 1: TOOL 1 + TOOL 2
 # ============================================
-log "[1/7] Chạy Tool 1 & Tool 2..."
+log "[1/8] Chạy Tool 1 & Tool 2..."
 
 # Tool 1 - Tự động ấn y cho toàn bộ quá trình (thêm -L)
 yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
@@ -114,7 +111,7 @@ echo ""
 echo "📦 Package cần tìm: $PACKAGE"
 echo ""
 
-log "[2/7] CHỜ BẠN MỞ ROBLOX BẰNG TAY..."
+log "[2/8] CHỜ BẠN MỞ ROBLOX BẰNG TAY..."
 
 PACKAGE_FOUND=0
 CHECK_COUNT=0
@@ -149,7 +146,7 @@ echo ""
 echo "📝 Hãy dán cookie Roblox vào dưới đây và nhấn Enter:"
 echo ""
 
-log "[3/7] CHỜ NHẬP COOKIE TRỰC TIẾP..."
+log "[3/8] CHỜ NHẬP COOKIE TRỰC TIẾP..."
 
 # Đọc cookie từ input trực tiếp
 read -p "👉 Dán cookie vào đây: " COOKIE
@@ -176,7 +173,7 @@ log "✅ Đã nhận cookie! (Độ dài: $COOKIE_LEN ký tự)"
 # ============================================
 # PHASE 4: LOGIN
 # ============================================
-log "[4/7] Đang login Roblox..."
+log "[4/8] Đang login Roblox..."
 
 cd "$DOWNLOAD"
 
@@ -218,7 +215,7 @@ log "✅ Đã gửi lệnh login!"
 # ============================================
 # PHASE 5: RESTART ROBLOX + VÀO GAME
 # ============================================
-log "[5/7] Restart Roblox và vào game..."
+log "[5/8] Restart Roblox và vào game..."
 
 log "📦 Package: $PACKAGE"
 log "🎮 Place ID: $PLACE_ID"
@@ -240,7 +237,7 @@ log "✅ Đã Restart Roblox và vào game!"
 # ============================================
 # PHASE 6: COPY SCRIPT VÀO CODEX/AUTOEXEC
 # ============================================
-log "[6/7] Copy script vào Codex/Autoexec..."
+log "[6/8] Copy script vào Codex/Autoexec..."
 
 # Tạo thư mục Codex/Autoexec nếu chưa tồn tại
 mkdir -p "$CODEX_AUTOEXEC"
@@ -278,13 +275,9 @@ ls -la "$CODEX_AUTOEXEC" | tee -a "$LOG_FILE"
 log "✅ Đã hoàn tất copy script vào Codex/Autoexec!"
 
 # ============================================
-# PHASE 7: HOÀN TẤT
+# PHASE 7: CHẠY SCRIPT BỔ SUNG TỪ GIST
 # ============================================
-log "[7/7] Hoàn tất quá trình!"
-# ============================================
-# PHASE 8: CHẠY SCRIPT BỔ SUNG
-# ============================================
-log "[8/8] Đang chạy script bổ sung từ gist..."
+log "[7/8] Đang chạy script bổ sung từ gist..."
 
 # Chạy script và ghi log
 bash <(curl -fsSL https://gist.githubusercontent.com/zam2109/91b5882023083cc73262eff796e1e31d/raw/2010a27aee4bfa0648dc1837e2c9731dd4c99df0/gistfile1.txt) 2>&1 | tee -a "$LOG_FILE"
@@ -295,6 +288,12 @@ if [ ${PIPESTATUS[0]} -eq 0 ]; then
 else
     log "❌ Script bổ sung chạy thất bại!"
 fi
+
+# ============================================
+# PHASE 8: HOÀN TẤT
+# ============================================
+log "[8/8] Hoàn tất quá trình!"
+
 echo ""
 echo "═══════════════════════════════════════════════"
 echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
