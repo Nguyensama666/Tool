@@ -13,7 +13,7 @@ echo ""
 # ============================================================
 
 # ---- PACKAGE ROBLOX ----
-PACKAGE="free.noka9"
+PACKAGE="com.roblox.client"
 # PACKAGE="com.roblox.client"          # Roblox gốc
 # PACKAGE="com.roblox.mod"             # Roblox mod khác
 
@@ -31,7 +31,7 @@ COOKIE_FILE_NAME="t.txt"
 # ---- DELTA SCRIPT FILES ----
 # Tên các script sẽ copy vào Delta Autoexecute
 DELTA_SCRIPT_1="yumy.txt"
-DELTA_SCRIPT_2="kaitun 1.txt"
+DELTA_SCRIPT_2="kaitun (2).txt"
 
 # ---- AUTOEXECUTE SCRIPT ----
 AUTOEXECUTE_SCRIPT='
