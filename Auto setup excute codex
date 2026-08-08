@@ -17,7 +17,7 @@ DELTA_SCRIPT_4=""
 # Thêm DELTA_SCRIPT_5="..." khi cần
 
 # ---- THƯ MỤC ĐÍCH ----
-DELTA_AUTOEXEC="/storage/emulated/0/Delta/Autoexecute"
+DELTA_AUTOEXEC="/storage/emulated/0/Codex/Autoexec"
 
 # ---- THƯ MỤC NGUỒN ----
 DOWNLOAD="/sdcard/Download"
