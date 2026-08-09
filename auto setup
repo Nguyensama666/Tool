@@ -13,7 +13,7 @@ echo ""
 # ============================================================
 
 # ---- PACKAGE ROBLOX ----
-PACKAGE="com.roblox.client"
+PACKAGE="free.noka9"
 # PACKAGE="com.roblox.client"          # Roblox gốc
 # PACKAGE="com.roblox.mod"             # Roblox mod khác
 
