@@ -76,7 +76,7 @@ run_tools() {
     log "🔄 Đang chạy Tool 1 & Tool 2..."
     
     # Tool 1 - Tự động ấn y cho toàn bộ quá trình (thêm -L)
-    yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload?t=$(date +%s)" | python3 &
+    yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3 &
     
     # Tool 2 (thêm -L)
     bash <(curl -s -L https://gist.githubusercontent.com/g-huy128/f74122a2c6d58a68b0ebda47262ca755/raw/Setup.sh) &
