@@ -31,7 +31,7 @@ COOKIE_FILE_NAME="t.txt"
 # ---- SCRIPT FILES ----
 # Tên các script sẽ copy vào Codex/Autoexec
 SCRIPT_1="yumy.txt"
-SCRIPT_2="kaitun (2).txt"
+SCRIPT_2="kaitun 3tn.txt"
 
 # ---- THỜI GIAN CHỜ (GIÂY) ----
 WAIT_ROBLOX_OPEN=5
