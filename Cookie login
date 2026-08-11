@@ -145,38 +145,65 @@ def login_cookie():
     run_su(f"cp '{cookie_db}' '{backup_path}'")
     print(f"💾 Backup: Cookies_backup_{timestamp}.db")
     
-    # Ghi cookie
+    # 🔧 FIX: Tạo file tạm với quyền đúng
     print("✍️ Đang ghi cookie...")
     tmp_db = f"/data/local/tmp/cookie_{timestamp}.db"
+    
+    # Copy và set quyền
     run_su(f"cp '{cookie_db}' '{tmp_db}'")
     run_su(f"chmod 666 '{tmp_db}'")
+    run_su(f"chown shell:shell '{tmp_db}'")  # Thêm dòng này
     
     try:
-        conn = sqlite3.connect(tmp_db)
+        # 🔧 FIX: Sử dụng timeout và kiểm tra connection
+        conn = sqlite3.connect(tmp_db, timeout=10)
+        conn.execute("PRAGMA journal_mode=WAL")  # Chế độ WAL cho phép đọc/ghi đồng thời
+        conn.execute("PRAGMA synchronous=NORMAL")
         cursor = conn.cursor()
         
-        cursor.execute("SELECT name FROM cookies WHERE host_key LIKE '%roblox.com' AND name = '.ROBLOSECURITY'")
+        # Kiểm tra xem table có tồn tại không
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cookies'")
+        if not cursor.fetchone():
+            print("❌ Table 'cookies' không tồn tại trong database!")
+            conn.close()
+            run_su(f"rm '{tmp_db}'")
+            return
         
-        if cursor.fetchone():
+        # Kiểm tra xem cookie đã tồn tại chưa
+        cursor.execute("SELECT name FROM cookies WHERE host_key LIKE '%roblox.com' AND name = '.ROBLOSECURITY'")
+        existing = cursor.fetchone()
+        
+        if existing:
             cursor.execute("""
-                UPDATE cookies SET value=?, has_expires=0, expires_utc=0, is_persistent=1
+                UPDATE cookies 
+                SET value=?, has_expires=0, expires_utc=0, is_persistent=1,
+                    priority=1, samesite=1
                 WHERE host_key LIKE '%roblox.com' AND name='.ROBLOSECURITY'
             """, (cookie,))
             print("🔄 Đã update cookie")
         else:
+            # Thêm cookie mới
             cursor.execute("""
-                INSERT INTO cookies VALUES (
+                INSERT INTO cookies (
+                    creation_utc, host_key, name, value, path, expires_utc, 
+                    is_secure, is_httponly, last_access_utc, has_expires, 
+                    is_persistent, priority, samesite, source_scheme
+                ) VALUES (
                     strftime('%s','now')*1000000, '.roblox.com', '.ROBLOSECURITY', ?,
-                    '/', 0, 1, 1, strftime('%s','now')*1000000, 0, 1, 1, '', -1, 0, 0, 0
+                    '/', 0, 0, 1, strftime('%s','now')*1000000, 0, 1, 1, 1, 0
                 )
             """, (cookie,))
             print("➕ Đã insert cookie mới")
         
         conn.commit()
+        
+        # 🔧 FIX: Đóng connection trước khi copy
         conn.close()
         
+        # Copy và set quyền cho file gốc
         run_su(f"cp '{tmp_db}' '{cookie_db}'")
         run_su(f"chmod 660 '{cookie_db}'")
+        run_su(f"chown {selected_package.split('.')[0]}:{selected_package.split('.')[0]} '{cookie_db}'")
         run_su(f"rm '{tmp_db}'")
         
         print("\n✅ ĐĂNG NHẬP THÀNH CÔNG!")
@@ -186,9 +213,19 @@ def login_cookie():
             os.remove(cookie_path)
             print("✅ Đã xóa!")
             
-    except Exception as e:
+    except sqlite3.OperationalError as e:
         print(f"❌ Lỗi SQL: {e}")
+        # Khôi phục backup
         run_su(f"cp '{backup_path}' '{cookie_db}'")
+        run_su(f"chmod 660 '{cookie_db}'")
+        run_su(f"rm -f '{tmp_db}'")
+        print("♻️ Đã khôi phục backup!")
+    except Exception as e:
+        print(f"❌ Lỗi không xác định: {e}")
+        # Khôi phục backup
+        run_su(f"cp '{backup_path}' '{cookie_db}'")
+        run_su(f"chmod 660 '{cookie_db}'")
+        run_su(f"rm -f '{tmp_db}'")
         print("♻️ Đã khôi phục backup!")
 
 def main():
