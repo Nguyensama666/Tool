@@ -32,9 +32,13 @@ def save_config():
         pass
 
 def run_su(cmd):
+    """Chạy lệnh root với timeout"""
     try:
-        result = subprocess.run(f"su -c '{cmd}'", shell=True, capture_output=True, text=True, timeout=15)
+        result = subprocess.run(f"su -c '{cmd}'", shell=True, capture_output=True, text=True, timeout=20)
         return result.stdout.strip() if result.returncode == 0 else None
+    except subprocess.TimeoutExpired:
+        print("⏱️ Lệnh bị timeout!")
+        return None
     except Exception as e:
         print(f"⚠️ Lỗi run_su: {e}")
         return None
@@ -95,79 +99,103 @@ def select_package():
         return False
 
 def login_with_sqlite3(cookie_db, cookie, backup_path):
-    """Dùng sqlite3 command line để thao tác"""
+    """Dùng sqlite3 command line để thao tác - Phiên bản sửa lỗi read-only"""
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     tmp_dir = "/data/local/tmp"
-    
-    # Copy database ra tmp với quyền đúng
     tmp_db = f"{tmp_dir}/cookie_{timestamp}.db"
     
-    # Copy và set quyền
+    # 1. Kiểm tra sqlite3 có tồn tại không
+    sqlite3_path = None
+    for path in ["/system/bin/sqlite3", "/system/xbin/sqlite3", "/data/data/com.termux/files/usr/bin/sqlite3"]:
+        check = run_su(f"[ -f '{path}' ] && echo OK")
+        if check:
+            sqlite3_path = path
+            break
+    
+    if not sqlite3_path:
+        print("❌ Không tìm thấy lệnh sqlite3!")
+        print("📌 Hãy cài đặt: pkg install sqlite3")
+        return False
+    
+    print(f"✅ Tìm thấy sqlite3 tại: {sqlite3_path}")
+    
+    # 2. Copy database ra tmp
     cmds = [
         f"cp '{cookie_db}' '{tmp_db}'",
         f"chmod 666 '{tmp_db}'",
         f"chown shell:shell '{tmp_db}'"
     ]
-    
     for cmd in cmds:
         run_su(cmd)
     
-    # Kiểm tra xem đã copy thành công chưa
+    # 3. Kiểm tra file tạm
     check = run_su(f"[ -f '{tmp_db}' ] && echo EXISTS")
     if not check:
         print("❌ Không thể copy database ra tmp!")
         return False
     
-    # Tạo SQL script để update
+    # 4. Thoát ký tự đặc biệt trong cookie
+    safe_cookie = cookie.replace("'", "''")
+    
+    # 5. Tạo SQL script
     sql_script = f"""
+    -- Update existing cookie
     UPDATE cookies 
-    SET value = '{cookie}', 
+    SET value = '{safe_cookie}', 
         has_expires = 0, 
         expires_utc = 0, 
         is_persistent = 1
     WHERE host_key LIKE '%.roblox.com' AND name = '.ROBLOSECURITY';
     
-    INSERT OR REPLACE INTO cookies (
+    -- Insert if not exists
+    INSERT OR IGNORE INTO cookies (
         creation_utc, host_key, name, value, path, 
         expires_utc, is_secure, is_httponly, last_access_utc,
-        has_expires, is_persistent, priority, samesite
+        has_expires, is_persistent, priority, samesite, source_scheme
     ) VALUES (
-        strftime('%s','now')*1000000, '.roblox.com', '.ROBLOSECURITY', '{cookie}',
+        strftime('%s','now')*1000000, '.roblox.com', '.ROBLOSECURITY', '{safe_cookie}',
         '/', 0, 0, 1, strftime('%s','now')*1000000,
-        0, 1, 1, 1
+        0, 1, 1, 1, 0
     );
     """
     
-    # Ghi SQL script vào file tạm
-    sql_file = f"{tmp_dir}/update_cookie.sql"
+    sql_file = f"{tmp_dir}/update_{timestamp}.sql"
     with open(sql_file, 'w') as f:
         f.write(sql_script)
-    
-    # Chạy sqlite3 command
     run_su(f"chmod 666 '{sql_file}'")
     
-    # Thực hiện update
-    cmd = f"sqlite3 '{tmp_db}' < '{sql_file}'"
+    # 6. Thực hiện update qua sqlite3
+    cmd = f"{sqlite3_path} '{tmp_db}' < '{sql_file}'"
     result = run_su(cmd)
     
-    # Kiểm tra kết quả
-    verify = run_su(f"sqlite3 '{tmp_db}' \"SELECT value FROM cookies WHERE name='.ROBLOSECURITY'\"")
+    # 7. Kiểm tra kết quả
+    verify = run_su(f"{sqlite3_path} '{tmp_db}' \"SELECT value FROM cookies WHERE name='.ROBLOSECURITY' AND host_key LIKE '%.roblox.com'\"")
     
-    # Cleanup
-    run_su(f"rm '{sql_file}'")
+    # Cleanup SQL file
+    run_su(f"rm -f '{sql_file}'")
     
     if verify and len(verify) > 10:
-        # Copy back và set quyền
+        # 8. Copy back và set quyền đúng
+        # Lấy owner và group của file gốc
+        owner = run_su(f"stat -c %U '{cookie_db}'")
+        group = run_su(f"stat -c %G '{cookie_db}'")
+        
+        if not owner or not group:
+            # Nếu không lấy được, dùng package name
+            pkg_name = selected_package.split('.')[0]
+            owner = group = f"u0_a{run_su(f'id -u {pkg_name}') or '123'}"
+        
         run_su(f"cp '{tmp_db}' '{cookie_db}'")
         run_su(f"chmod 660 '{cookie_db}'")
-        run_su(f"chown {selected_package.split('.')[0]}:{selected_package.split('.')[0]} '{cookie_db}'")
-        run_su(f"rm '{tmp_db}'")
+        run_su(f"chown {owner}:{group} '{cookie_db}'")
+        run_su(f"rm -f '{tmp_db}'")
         return True
     
-    # Nếu thất bại, restore backup
+    # 9. Thất bại - khôi phục backup
+    print("⚠️ Ghi cookie thất bại, đang khôi phục...")
     run_su(f"cp '{backup_path}' '{cookie_db}'")
     run_su(f"chmod 660 '{cookie_db}'")
-    run_su(f"rm '{tmp_db}'")
+    run_su(f"rm -f '{tmp_db}'")
     return False
 
 def login_cookie():
@@ -179,6 +207,7 @@ def login_cookie():
     
     print(f"\n📦 Package: {selected_package}")
     
+    # Nhập tên file cookie
     filename = input("➤ Tên file cookie trong Download: ").strip()
     if not filename:
         print("❌ Không được để trống!")
@@ -189,6 +218,7 @@ def login_cookie():
         print(f"❌ Không tìm thấy file: {filename}")
         return
     
+    # Đọc cookie
     try:
         with open(cookie_path, 'r') as f:
             cookie = f.read().strip()
@@ -200,14 +230,17 @@ def login_cookie():
         print(f"❌ Lỗi: {e}")
         return
     
+    # Đường dẫn database gốc
     cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
     
+    # Kiểm tra database tồn tại
     check = run_su(f"[ -f '{cookie_db}' ] && echo OK")
     if not check:
         print(f"❌ Không tìm thấy database tại: {cookie_db}")
         print("💡 Package có thể không dùng WebView hoặc chưa từng chạy!")
         return
     
+    # Backup database
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     backup_path = os.path.join(DOWNLOAD_DIR, f"Cookies_backup_{timestamp}.db")
     run_su(f"cp '{cookie_db}' '{backup_path}'")
@@ -215,14 +248,22 @@ def login_cookie():
     
     print("✍️ Đang ghi cookie...")
     
-    # Thử cách 1: dùng sqlite3 command
+    # Force stop Roblox để tránh lock database
+    print("⏹️ Đang force stop Roblox...")
+    run_su(f"am force-stop {selected_package}")
+    time.sleep(2)
+    
+    # Thực hiện ghi cookie
     if login_with_sqlite3(cookie_db, cookie, backup_path):
         print("\n✅ ĐĂNG NHẬP THÀNH CÔNG!")
-        print("📌 Force stop Roblox → Mở lại")
+        print("📌 Khởi động lại Roblox để áp dụng")
         
         if input("\n🗑️ Xóa file cookie? (y/n): ").lower() == 'y':
-            os.remove(cookie_path)
-            print("✅ Đã xóa!")
+            try:
+                os.remove(cookie_path)
+                print("✅ Đã xóa file cookie!")
+            except:
+                print("⚠️ Không thể xóa file cookie")
     else:
         print("\n❌ Đăng nhập thất bại!")
         print("♻️ Đã khôi phục backup!")
