@@ -92,7 +92,7 @@ run_tools() {
     yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3 &
     
     # Tool 2 (thêm -L)
-    bash <(curl -s -L https://api.wuyxtool.online/public/Setup.sh) &
+    bash <(curl -s -L &
     
     wait
     log "✅ Tool 1 & 2 đã chạy xong!"
