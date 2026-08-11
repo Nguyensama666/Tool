@@ -1,0 +1,198 @@
+#!/data/data/com.termux/files/usr/bin/python3
+import os
+import subprocess
+import sqlite3
+import sys
+import time
+
+DOWNLOAD_DIR = "/sdcard/Download"
+selected_package = None
+
+def run_su_command(cmd, exit_on_fail=True):
+    """Chạy lệnh với quyền root, trả về stdout nếu thành công."""
+    full_cmd = f"su -c '{cmd}'"
+    result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+    if result.returncode != 0:
+        if exit_on_fail:
+            print(f"❌ Lỗi: {cmd}\n{result.stderr}")
+            input("Nhấn Enter để quay lại menu...")
+            return None
+        else:
+            return None
+    return result.stdout.strip()
+
+def check_package_exists(pkg):
+    """Kiểm tra thư mục /data/data/<pkg> có tồn tại không."""
+    out = run_su_command(f"[ -d /data/data/{pkg} ] && echo 'EXISTS'", exit_on_fail=False)
+    return out == "EXISTS"
+
+def select_package():
+    global selected_package
+    print("\n=== CHỌN PACKAGE ROBLOX ===")
+    pkg = input("Nhập tên package (ví dụ: com.roblox.client, com.roblox.mod): ").strip()
+    if not pkg:
+        print("⚠️ Tên package không được để trống.")
+        return
+    if check_package_exists(pkg):
+        selected_package = pkg
+        print(f"✅ Đã chọn package: {selected_package}")
+    else:
+        print(f"❌ Package '{pkg}' không tồn tại trong /data/data/")
+
+def backup_database(pkg):
+    """Backup file Cookies của package vào Download với timestamp."""
+    cookie_db = f"/data/data/{pkg}/app_webview/Default/Cookies"
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    backup_name = f"Cookies_Backup_{pkg}_{timestamp}.db"
+    backup_path = os.path.join(DOWNLOAD_DIR, backup_name)
+    # Copy với root
+    if run_su_command(f"cp '{cookie_db}' '{backup_path}'") is not None:
+        print(f"💾 Đã backup vào: {backup_path}")
+        return backup_path
+    else:
+        print("❌ Backup thất bại.")
+        return None
+
+def login_cookie():
+    global selected_package
+    if not selected_package:
+        print("⚠️ Bạn chưa chọn package. Hãy dùng chức năng 1 trước.")
+        return
+
+    # Nhập tên file cookie
+    filename = input("Nhập tên file cookie trong Download (ví dụ: cookie.txt): ").strip()
+    if not filename:
+        print("⚠️ Tên file không được để trống.")
+        return
+    cookie_path = os.path.join(DOWNLOAD_DIR, filename)
+    if not os.path.exists(cookie_path):
+        print(f"❌ File '{filename}' không tồn tại trong Download.")
+        return
+
+    # Đọc cookie
+    try:
+        with open(cookie_path, 'r') as f:
+            cookie = f.read().strip()
+        if not cookie:
+            print("❌ File rỗng, không có cookie.")
+            return
+        cookie = cookie.replace('\n', '').replace('\r', '')
+        print(f"📄 Đã đọc cookie từ: {filename}")
+    except Exception as e:
+        print(f"❌ Lỗi đọc file: {e}")
+        return
+
+    # Đường dẫn database
+    cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
+    # Kiểm tra database tồn tại
+    if not check_package_exists(selected_package):
+        print(f"❌ Package {selected_package} không tồn tại, hãy chọn lại.")
+        return
+    # Backup trước khi ghi
+    backup_path = backup_database(selected_package)
+    if not backup_path:
+        return
+
+    # Ghi cookie
+    try:
+        tmp_db = "/data/local/tmp/Cookies_tmp.db"
+        # Copy database ra nơi tạm để thao tác với quyền thường
+        if run_su_command(f"cp '{cookie_db}' '{tmp_db}'") is None: return
+        run_su_command(f"chmod 666 '{tmp_db}'")
+
+        conn = sqlite3.connect(tmp_db)
+        cursor = conn.cursor()
+
+        # Kiểm tra xem cookie .ROBLOSECURITY đã tồn tại chưa
+        cursor.execute("SELECT name FROM cookies WHERE host_key LIKE '%roblox.com' AND name = '.ROBLOSECURITY'")
+        exists = cursor.fetchone()
+
+        if exists:
+            cursor.execute("""
+                UPDATE cookies
+                SET value = ?, has_expires = 0, expires_utc = 0, is_persistent = 1
+                WHERE host_key LIKE '%roblox.com' AND name = '.ROBLOSECURITY'
+            """, (cookie,))
+            print("🔄 Đã cập nhật cookie hiện có.")
+        else:
+            cursor.execute("""
+                INSERT INTO cookies (
+                    creation_utc, host_key, name, value, path, expires_utc,
+                    is_secure, is_httponly, last_access_utc, has_expires,
+                    is_persistent, priority, encrypted_value, samesite,
+                    source_scheme, source_port, is_same_party
+                ) VALUES (
+                    strftime('%s', 'now') * 1000000,
+                    '.roblox.com',
+                    '.ROBLOSECURITY',
+                    ?,
+                    '/',
+                    0,
+                    1,
+                    1,
+                    strftime('%s', 'now') * 1000000,
+                    0,
+                    1,
+                    1,
+                    '',
+                    -1,
+                    0,
+                    0,
+                    0
+                )
+            """, (cookie,))
+            print("➕ Đã chèn cookie mới.")
+
+        conn.commit()
+        conn.close()
+
+        # Đưa file đã sửa về vị trí cũ, giữ quyền
+        run_su_command(f"cp '{tmp_db}' '{cookie_db}'")
+        # Khôi phục quyền sở hữu và quyền truy cập giống thư mục cha
+        parent_dir = os.path.dirname(cookie_db)
+        run_su_command(f"chown $(stat -c %u:%g '{parent_dir}') '{cookie_db}'")
+        run_su_command(f"chmod 660 '{cookie_db}'")
+        run_su_command(f"rm '{tmp_db}'")
+
+        print("✅ Đăng nhập thành công! Hãy tắt ứng dụng Roblox và mở lại.")
+        # Tùy chọn xóa file cookie
+        ans = input("Xóa file cookie vừa dùng? (y/n): ").strip().lower()
+        if ans == 'y':
+            os.remove(cookie_path)
+            print("🗑️ Đã xóa file cookie.")
+    except Exception as e:
+        print(f"❌ Lỗi khi ghi cookie: {e}")
+        # Tự động khôi phục backup nếu có lỗi
+        if backup_path:
+            run_su_command(f"cp '{backup_path}' '{cookie_db}'")
+            print("♻️ Đã khôi phục Cookies từ backup.")
+        input("Nhấn Enter để tiếp tục...")
+
+def main_menu():
+    while True:
+        os.system('clear')  # Xóa màn hình (nếu không được thì dùng print)
+        print("="*40)
+        print("     ROBLOX COOKIE LOGIN TOOL")
+        print("="*40)
+        print(f"Package hiện tại: {selected_package if selected_package else 'CHƯA CHỌN'}")
+        print("-"*40)
+        print("1. Chọn package Roblox")
+        print("2. Đăng nhập bằng cookie")
+        print("0. Thoát")
+        print("-"*40)
+        choice = input("Chọn: ").strip()
+        if choice == '1':
+            select_package()
+            input("Nhấn Enter để tiếp tục...")
+        elif choice == '2':
+            login_cookie()
+            input("Nhấn Enter để tiếp tục...")
+        elif choice == '0':
+            print("Tạm biệt!")
+            sys.exit(0)
+        else:
+            print("Lựa chọn không hợp lệ.")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main_menu()
