@@ -34,165 +34,241 @@ def save_config():
         pass
 
 def run_su_command(cmd, exit_on_fail=True):
-    """Chạy lệnh với quyền root, trả về stdout nếu thành công."""
+    """Chạy lệnh với quyền root."""
     full_cmd = f"su -c '{cmd}'"
     result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
     if result.returncode != 0:
         if exit_on_fail:
-            print(f"❌ Lỗi: {cmd}\n{result.stderr}")
-            return None
-        else:
-            return None
+            print(f"❌ Lỗi: {cmd}")
+            print(f"   Chi tiết: {result.stderr}")
+        return None
     return result.stdout.strip()
 
 def check_package_exists(pkg):
     """Kiểm tra thư mục /data/data/<pkg> có tồn tại không."""
-    out = run_su_command(f"[ -d /data/data/{pkg} ] && echo 'EXISTS'", exit_on_fail=False)
-    return out == "EXISTS"
+    if not pkg:
+        return False
+    out = run_su_command(f"[ -d /data/data/{pkg} ] && echo 'YES'", exit_on_fail=False)
+    return out == "YES"
 
-def scan_roblox_packages():
-    """Quét tất cả package có 'roblox' trong /data/data/."""
-    print("\n🔍 Đang quét các package Roblox trong máy...")
+def scan_all_packages():
+    """Quét TẤT CẢ package trong /data/data/ và hiển thị danh sách."""
+    print("\n🔍 Đang quét tất cả package trong /data/data/...")
+    print("   (Có thể mất vài giây)...\n")
+    
+    out = run_su_command("ls /data/data/", exit_on_fail=False)
+    if not out:
+        print("❌ Không thể đọc /data/data/ hoặc không có package nào.")
+        return []
+    
+    packages = sorted(out.split('\n'))
+    valid_packages = []
+    
+    print(f"📦 Tìm thấy {len(packages)} package:\n")
+    print("-" * 60)
+    print(f"{'Số':<5} {'Tên package':<45} {'Webview':<10}")
+    print("-" * 60)
+    
+    for i, pkg in enumerate(packages, 1):
+        if pkg.strip():
+            has_webview = run_su_command(f"[ -d /data/data/{pkg}/app_webview ] && echo '✅' || echo '❌'", exit_on_fail=False)
+            has_webview = has_webview.strip() if has_webview else '❌'
+            print(f"{i:<5} {pkg:<45} {has_webview:<10}")
+            valid_packages.append(pkg)
+    
+    print("-" * 60)
+    return valid_packages
+
+def search_roblox_packages():
+    """Tìm package có chứa 'roblox' trong /data/data/."""
+    print("\n🔍 Đang tìm package Roblox trong /data/data/...\n")
+    
     out = run_su_command("ls /data/data/ | grep -i roblox", exit_on_fail=False)
     if not out:
         print("❌ Không tìm thấy package Roblox nào.")
         return []
     
-    packages = out.split('\n')
-    print(f"📦 Tìm thấy {len(packages)} package Roblox:")
-    for i, pkg in enumerate(packages, 1):
-        # Kiểm tra có thư mục app_webview không
-        has_webview = run_su_command(f"[ -d /data/data/{pkg}/app_webview ] && echo 'YES'", exit_on_fail=False)
-        status = "✅ (có webview)" if has_webview == "YES" else "⚠️ (không webview)"
-        print(f"  {i}. {pkg} {status}")
+    packages = sorted(out.split('\n'))
     
+    print(f"🎮 Tìm thấy {len(packages)} package Roblox:\n")
+    print("-" * 60)
+    print(f"{'Số':<5} {'Tên package':<45} {'Webview':<10}")
+    print("-" * 60)
+    
+    for i, pkg in enumerate(packages, 1):
+        if pkg.strip():
+            has_webview = run_su_command(f"[ -d /data/data/{pkg}/app_webview ] && echo '✅' || echo '❌'", exit_on_fail=False)
+            has_webview = has_webview.strip() if has_webview else '❌'
+            print(f"{i:<5} {pkg:<45} {has_webview:<10}")
+    
+    print("-" * 60)
     return packages
 
 def select_package():
     global selected_package
-    print("\n=== CHỌN PACKAGE ROBLOX ===")
-    print("1. Nhập tên package thủ công")
-    print("2. Quét tự động package Roblox")
-    print("0. Quay lại")
     
-    choice = input("Chọn: ").strip()
-    
-    if choice == '1':
-        pkg = input("Nhập tên package (ví dụ: com.roblox.client): ").strip()
-        if not pkg:
-            print("⚠️ Tên package không được để trống.")
-            return False
-        if check_package_exists(pkg):
-            selected_package = pkg
-            save_config()
-            print(f"✅ Đã chọn và lưu package: {selected_package}")
-            return True
-        else:
-            print(f"❌ Package '{pkg}' không tồn tại trong /data/data/")
-            return False
-            
-    elif choice == '2':
-        packages = scan_roblox_packages()
-        if not packages:
-            return False
+    while True:
+        print("\n" + "="*60)
+        print("                   CHỌN PACKAGE ROBLOX")
+        print("="*60)
+        print("1. 🔍 Tìm & chọn package Roblox (khuyên dùng)")
+        print("2. 📋 Xem TẤT CẢ package trong /data/data/")
+        print("3. ⌨️  Nhập tên package thủ công")
+        print("0. ↩️  Quay lại menu chính")
+        print("-"*60)
         
-        try:
-            idx = input("\nChọn số package (0 để quay lại): ").strip()
-            if idx == '0':
-                return False
-            idx = int(idx) - 1
-            if 0 <= idx < len(packages):
-                selected_package = packages[idx]
+        choice = input("➤ Chọn: ").strip()
+        
+        if choice == '1':
+            packages = search_roblox_packages()
+            if not packages:
+                continue
+            
+            try:
+                num = input("\n➤ Nhập số package muốn chọn (0: quay lại): ").strip()
+                if num == '0':
+                    continue
+                num = int(num)
+                if 1 <= num <= len(packages):
+                    selected_package = packages[num-1]
+                    save_config()
+                    print(f"\n✅ Đã chọn & lưu package: {selected_package}")
+                    return
+                else:
+                    print("❌ Số không hợp lệ!")
+            except (ValueError, IndexError):
+                print("❌ Vui lòng nhập số!")
+                
+        elif choice == '2':
+            packages = scan_all_packages()
+            if not packages:
+                continue
+            
+            try:
+                num = input("\n➤ Nhập số package muốn chọn (0: quay lại): ").strip()
+                if num == '0':
+                    continue
+                num = int(num)
+                if 1 <= num <= len(packages):
+                    selected_package = packages[num-1]
+                    save_config()
+                    print(f"\n✅ Đã chọn & lưu package: {selected_package}")
+                    return
+                else:
+                    print("❌ Số không hợp lệ!")
+            except (ValueError, IndexError):
+                print("❌ Vui lòng nhập số!")
+                
+        elif choice == '3':
+            pkg = input("\n➤ Nhập tên package: ").strip()
+            if not pkg:
+                print("⚠️ Tên package không được để trống!")
+                continue
+            if check_package_exists(pkg):
+                selected_package = pkg
                 save_config()
-                print(f"✅ Đã chọn và lưu package: {selected_package}")
-                return True
+                print(f"\n✅ Đã chọn & lưu package: {selected_package}")
+                return
             else:
-                print("❌ Số không hợp lệ.")
-                return False
-        except ValueError:
-            print("❌ Vui lòng nhập số.")
-            return False
-    
-    elif choice == '0':
-        return False
-    else:
-        print("❌ Lựa chọn không hợp lệ.")
-        return False
+                print(f"❌ Package '{pkg}' không tồn tại trong /data/data/")
+                
+        elif choice == '0':
+            return
+        else:
+            print("❌ Lựa chọn không hợp lệ!")
 
 def backup_database(pkg):
-    """Backup file Cookies của package vào Download với timestamp."""
+    """Backup file Cookies."""
     cookie_db = f"/data/data/{pkg}/app_webview/Default/Cookies"
+    
+    # Kiểm tra file tồn tại không
+    check = run_su_command(f"[ -f '{cookie_db}' ] && echo 'YES'", exit_on_fail=False)
+    if check != "YES":
+        print(f"❌ Không tìm thấy database Cookies tại: {cookie_db}")
+        return None
+    
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     backup_name = f"Cookies_Backup_{pkg}_{timestamp}.db"
     backup_path = os.path.join(DOWNLOAD_DIR, backup_name)
     
-    if run_su_command(f"cp '{cookie_db}' '{backup_path}'") is not None:
+    result = run_su_command(f"cp '{cookie_db}' '{backup_path}'", exit_on_fail=False)
+    if result is not None:
         print(f"💾 Đã backup vào: {backup_name}")
         return backup_path
     else:
-        print("❌ Backup thất bại.")
+        print("❌ Backup thất bại!")
         return None
 
 def login_cookie():
     global selected_package
+    
     if not selected_package:
-        print("⚠️ Bạn chưa chọn package. Hãy dùng chức năng 1 trước.")
+        print("\n⚠️ Bạn chưa chọn package! Vui lòng chọn package trước.")
         return
-
-    filename = input("Nhập tên file cookie trong Download (ví dụ: cookie.txt): ").strip()
+    
+    # Hiển thị package đang dùng
+    print(f"\n📦 Package hiện tại: {selected_package}")
+    
+    # Nhập tên file
+    filename = input("➤ Nhập tên file cookie trong Download: ").strip()
     if not filename:
-        print("⚠️ Tên file không được để trống.")
+        print("⚠️ Tên file không được để trống!")
         return
     
     cookie_path = os.path.join(DOWNLOAD_DIR, filename)
     if not os.path.exists(cookie_path):
-        print(f"❌ File '{filename}' không tồn tại trong Download.")
+        print(f"❌ File '{filename}' không tồn tại trong Download!")
         return
-
+    
+    # Đọc cookie
     try:
-        with open(cookie_path, 'r', encoding='utf-8') as f:
+        with open(cookie_path, 'r', encoding='utf-8', errors='ignore') as f:
             cookie = f.read().strip()
         if not cookie:
-            print("❌ File rỗng, không có cookie.")
+            print("❌ File rỗng!")
             return
         cookie = cookie.replace('\n', '').replace('\r', '')
-        print(f"📄 Đã đọc cookie từ: {filename}")
-        print(f"📏 Độ dài cookie: {len(cookie)} ký tự")
+        print(f"📄 Đã đọc cookie: {len(cookie)} ký tự")
     except Exception as e:
         print(f"❌ Lỗi đọc file: {e}")
         return
-
+    
+    # Kiểm tra package
+    if not check_package_exists(selected_package):
+        print(f"❌ Package {selected_package} không tồn tại!")
+        return
+    
     cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
     
-    if not check_package_exists(selected_package):
-        print(f"❌ Package {selected_package} không tồn tại, hãy chọn lại.")
-        return
-
+    # Backup
     print("💾 Đang backup database...")
     backup_path = backup_database(selected_package)
     if not backup_path:
         return
-
+    
+    # Ghi cookie
     print("✍️ Đang ghi cookie...")
     try:
-        tmp_db = "/data/local/tmp/Cookies_tmp.db"
-        if run_su_command(f"cp '{cookie_db}' '{tmp_db}'") is None: 
+        tmp_db = f"/data/local/tmp/cookies_{int(time.time())}.db"
+        
+        if run_su_command(f"cp '{cookie_db}' '{tmp_db}'") is None:
             return
         run_su_command(f"chmod 666 '{tmp_db}'")
-
+        
         conn = sqlite3.connect(tmp_db)
         cursor = conn.cursor()
-
+        
+        # Kiểm tra cookie cũ
         cursor.execute("SELECT name FROM cookies WHERE host_key LIKE '%roblox.com' AND name = '.ROBLOSECURITY'")
         exists = cursor.fetchone()
-
+        
         if exists:
             cursor.execute("""
-                UPDATE cookies
+                UPDATE cookies 
                 SET value = ?, has_expires = 0, expires_utc = 0, is_persistent = 1
                 WHERE host_key LIKE '%roblox.com' AND name = '.ROBLOSECURITY'
             """, (cookie,))
-            print("🔄 Đã cập nhật cookie hiện có.")
+            print("🔄 Đã cập nhật cookie cũ")
         else:
             cursor.execute("""
                 INSERT INTO cookies (
@@ -220,65 +296,73 @@ def login_cookie():
                     0
                 )
             """, (cookie,))
-            print("➕ Đã chèn cookie mới.")
-
+            print("➕ Đã thêm cookie mới")
+        
         conn.commit()
         conn.close()
-
+        
+        # Copy lại vào vị trí cũ
         run_su_command(f"cp '{tmp_db}' '{cookie_db}'")
-        parent_dir = os.path.dirname(cookie_db)
-        run_su_command(f"chown $(stat -c %u:%g '{parent_dir}') '{cookie_db}'")
+        run_su_command(f"chown $(stat -c %u:%g /data/data/{selected_package}) '{cookie_db}'")
         run_su_command(f"chmod 660 '{cookie_db}'")
         run_su_command(f"rm '{tmp_db}'")
-
-        print("\n✅ Đăng nhập thành công!")
-        print("📌 Hãy force stop Roblox rồi mở lại.")
         
-        ans = input("\nXóa file cookie vừa dùng? (y/n): ").strip().lower()
+        print("\n" + "="*50)
+        print("✅ ĐĂNG NHẬP THÀNH CÔNG!")
+        print("="*50)
+        print("📌 Force stop Roblox rồi mở lại để áp dụng")
+        
+        # Hỏi xóa file
+        ans = input("\n🗑️  Xóa file cookie? (y/n): ").strip().lower()
         if ans == 'y':
             os.remove(cookie_path)
-            print("🗑️ Đã xóa file cookie.")
-            
+            print("✅ Đã xóa file cookie!")
+        
     except Exception as e:
-        print(f"❌ Lỗi khi ghi cookie: {e}")
+        print(f"❌ Lỗi: {e}")
         if backup_path:
             run_su_command(f"cp '{backup_path}' '{cookie_db}'")
-            print("♻️ Đã khôi phục Cookies từ backup.")
+            print("♻️ Đã khôi phục từ backup!")
 
-def main_menu():
-    # Tải package đã lưu
-    load_config()
+def main():
+    print("\n" + "="*50)
+    print("    ROBLOX COOKIE LOGIN TOOL v2.0")
+    print("="*50)
+    
+    # Load config
+    if load_config():
+        print(f"📦 Đã tải package: {selected_package}")
+    else:
+        print("📦 Chưa có package, vui lòng chọn!")
     
     while True:
-        print("\n" + "="*50)
-        print("        ROBLOX COOKIE LOGIN TOOL v2.0")
-        print("="*50)
+        print("\n" + "-"*50)
         print(f"📦 Package: {selected_package if selected_package else '❌ CHƯA CHỌN'}")
         print("-"*50)
-        print("1. 🔧 Chọn package Roblox (quét/nhập tay)")
-        print("2. 🍪 Đăng nhập bằng cookie")
-        print("3. 🔍 Quét lại package trong máy")
+        print("1. 🔧 Chọn package")
+        print("2. 🍪 Đăng nhập cookie")
         print("0. 🚪 Thoát")
         print("-"*50)
         
-        choice = input("Chọn: ").strip()
+        try:
+            choice = input("➤ Chọn: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n👋 Tạm biệt!")
+            sys.exit(0)
         
         if choice == '1':
             select_package()
         elif choice == '2':
             login_cookie()
-        elif choice == '3':
-            packages = scan_roblox_packages()
-            if packages:
-                print(f"\n📋 Tổng cộng {len(packages)} package Roblox được tìm thấy.")
         elif choice == '0':
             print("👋 Tạm biệt!")
             sys.exit(0)
         else:
             print("❌ Lựa chọn không hợp lệ!")
-        
-        if choice in ['1', '2', '3']:
-            input("\nNhấn Enter để tiếp tục...")
 
 if __name__ == "__main__":
-    main_menu()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n👋 Tạm biệt!")
+        sys.exit(0)
