@@ -11,7 +11,7 @@
 # Thêm tên file bạn muốn copy vào đây, cách nhau bằng dấu cách
 # File phải nằm trong thư mục /sdcard/Download/
 DELTA_SCRIPT_1="yumy.txt"
-DELTA_SCRIPT_2=""
+DELTA_SCRIPT_2="quantam"
 DELTA_SCRIPT_3=""
 DELTA_SCRIPT_4=""
 # Thêm DELTA_SCRIPT_5="..." khi cần
