@@ -1,7 +1,7 @@
 # Xóa file cũ
-rm ~/cookie_login.py
+rm -f ~/cookie_login.py
 
-# Tạo file mới
+# Tạo file mới với code đã sửa
 cat > ~/cookie_login.py << 'EOF'
 #!/data/data/com.termux/files/usr/bin/python3
 import os
@@ -146,10 +146,9 @@ def login_cookie():
     run_su(f"am force-stop {selected_package}")
     time.sleep(2)
     
-    # 🔧 CÁCH MỚI: Dùng shell script thay vì Python
+    # Tạo SQL script
     safe_cookie = cookie.replace("'", "''")
     
-    # Tạo SQL script trong thư mục home
     sql_script = f"""
 UPDATE cookies 
 SET value = '{safe_cookie}', 
@@ -169,7 +168,7 @@ INSERT OR IGNORE INTO cookies (
 );
 """
     
-    # Ghi SQL vào file
+    # Ghi SQL vào file trong thư mục home
     sql_file = os.path.expanduser("~/update.sql")
     with open(sql_file, 'w') as f:
         f.write(sql_script)
@@ -179,7 +178,7 @@ INSERT OR IGNORE INTO cookies (
     run_su(f"cp '{cookie_db}' '{tmp_db}'")
     run_su(f"chmod 666 '{tmp_db}'")
     
-    # Chạy sqlite3
+    # Tìm sqlite3
     sqlite3_path = None
     for path in ["/system/bin/sqlite3", "/system/xbin/sqlite3", "/data/data/com.termux/files/usr/bin/sqlite3"]:
         check = run_su(f"[ -f '{path}' ] && echo OK")
@@ -191,6 +190,7 @@ INSERT OR IGNORE INTO cookies (
         print("❌ Không tìm thấy sqlite3! Cài: pkg install sqlite3")
         return
     
+    # Chạy sqlite3
     cmd = f"{sqlite3_path} '{tmp_db}' < '{sql_file}'"
     run_su(cmd)
     
