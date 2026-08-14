@@ -1,7 +1,7 @@
-# 1. Xóa file cũ
-rm -f ~/cookie_login.py
+# 1. Xóa tất cả file cũ
+rm -f ~/cookie_login.py ~/.cookie_login.py
 
-# 2. Tạo file mới với code đúng (copy nguyên block này)
+# 2. Tạo file mới từ đầu (copy nguyên block dưới đây)
 cat > ~/cookie_login.py << 'EOF'
 #!/data/data/com.termux/files/usr/bin/python3
 import os
@@ -245,6 +245,5 @@ if __name__ == "__main__":
     main()
 EOF
 
-# 3. Cấp quyền và chạy
-chmod +x ~/cookie_login.py
+# 3. Chạy tool
 python ~/cookie_login.py
