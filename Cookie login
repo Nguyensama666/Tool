@@ -1,7 +1,7 @@
-# Xóa file cũ
+# 1. Xóa file cũ
 rm -f ~/cookie_login.py
 
-# Tạo file mới với code đã sửa
+# 2. Tạo file mới với code đúng (copy nguyên block này)
 cat > ~/cookie_login.py << 'EOF'
 #!/data/data/com.termux/files/usr/bin/python3
 import os
@@ -142,11 +142,9 @@ def login_cookie():
     
     print("✍️ Đang ghi cookie...")
     
-    # Force stop Roblox
     run_su(f"am force-stop {selected_package}")
     time.sleep(2)
     
-    # Tạo SQL script
     safe_cookie = cookie.replace("'", "''")
     
     sql_script = f"""
@@ -168,17 +166,14 @@ INSERT OR IGNORE INTO cookies (
 );
 """
     
-    # Ghi SQL vào file trong thư mục home
     sql_file = os.path.expanduser("~/update.sql")
     with open(sql_file, 'w') as f:
         f.write(sql_script)
     
-    # Copy database ra home
     tmp_db = os.path.expanduser("~/cookies.db")
     run_su(f"cp '{cookie_db}' '{tmp_db}'")
     run_su(f"chmod 666 '{tmp_db}'")
     
-    # Tìm sqlite3
     sqlite3_path = None
     for path in ["/system/bin/sqlite3", "/system/xbin/sqlite3", "/data/data/com.termux/files/usr/bin/sqlite3"]:
         check = run_su(f"[ -f '{path}' ] && echo OK")
@@ -190,15 +185,12 @@ INSERT OR IGNORE INTO cookies (
         print("❌ Không tìm thấy sqlite3! Cài: pkg install sqlite3")
         return
     
-    # Chạy sqlite3
     cmd = f"{sqlite3_path} '{tmp_db}' < '{sql_file}'"
     run_su(cmd)
     
-    # Kiểm tra
     verify = run_su(f"{sqlite3_path} '{tmp_db}' \"SELECT value FROM cookies WHERE name='.ROBLOSECURITY'\"")
     
     if verify and len(verify) > 10:
-        # Copy back
         run_su(f"cp '{tmp_db}' '{cookie_db}'")
         run_su(f"chmod 660 '{cookie_db}'")
         owner = run_su(f"stat -c %U '{cookie_db}'")
@@ -216,7 +208,6 @@ INSERT OR IGNORE INTO cookies (
             os.remove(cookie_path)
             print("✅ Đã xóa file cookie!")
     else:
-        # Khôi phục
         run_su(f"cp '{backup_path}' '{cookie_db}'")
         run_su(f"chmod 660 '{cookie_db}'")
         run_su(f"rm -f '{tmp_db}'")
@@ -254,6 +245,6 @@ if __name__ == "__main__":
     main()
 EOF
 
-# Cấp quyền và chạy
+# 3. Cấp quyền và chạy
 chmod +x ~/cookie_login.py
 python ~/cookie_login.py
