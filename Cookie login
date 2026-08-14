@@ -140,24 +140,60 @@ def login_cookie():
     run_su(f"am force-stop {selected_package}")
     time.sleep(2)
     
+    # 🔥 QUAN TRỌNG: Thoát ký tự đặc biệt trong cookie
     safe_cookie = cookie.replace("'", "''")
     
+    # 📝 SQL Script tối ưu dựa trên cấu trúc database thực tế
     sql_script = f"""
+-- 1. Kiểm tra và cập nhật cookie hiện có
 UPDATE cookies 
-SET value = '{safe_cookie}', 
-    has_expires = 0, 
-    expires_utc = 0, 
-    is_persistent = 1
-WHERE host_key LIKE '%.roblox.com' AND name = '.ROBLOSECURITY';
+SET 
+    value = '{safe_cookie}',
+    has_expires = 0,
+    expires_utc = 0,
+    is_persistent = 1,
+    last_access_utc = strftime('%s','now')*1000000
+WHERE host_key LIKE '%.roblox.com' 
+  AND name = '.ROBLOSECURITY'
+  AND path = '/';
 
+-- 2. Nếu chưa có, thêm mới với đầy đủ các cột
 INSERT OR IGNORE INTO cookies (
-    creation_utc, host_key, name, value, path, 
-    expires_utc, is_secure, is_httponly, last_access_utc,
-    has_expires, is_persistent, priority, samesite, source_scheme
+    creation_utc,
+    host_key,
+    name,
+    value,
+    path,
+    expires_utc,
+    is_secure,
+    is_httponly,
+    last_access_utc,
+    has_expires,
+    is_persistent,
+    priority,
+    encrypted_value,
+    samesite,
+    source_scheme,
+    source_port,
+    is_same_party
 ) VALUES (
-    strftime('%s','now')*1000000, '.roblox.com', '.ROBLOSECURITY', '{safe_cookie}',
-    '/', 0, 0, 1, strftime('%s','now')*1000000,
-    0, 1, 1, 1, 0
+    strftime('%s','now')*1000000,    -- creation_utc
+    '.roblox.com',                   -- host_key
+    '.ROBLOSECURITY',                -- name
+    '{safe_cookie}',                 -- value
+    '/',                             -- path
+    0,                               -- expires_utc (không hết hạn)
+    0,                               -- is_secure (không yêu cầu HTTPS)
+    1,                               -- is_httponly (không cho JS đọc)
+    strftime('%s','now')*1000000,    -- last_access_utc
+    0,                               -- has_expires (không có hết hạn)
+    1,                               -- is_persistent (tồn tại lâu dài)
+    1,                               -- priority (ưu tiên 1)
+    '',                              -- encrypted_value (rỗng)
+    1,                               -- samesite (Lax)
+    0,                               -- source_scheme
+    -1,                              -- source_port (không xác định)
+    0                                -- is_same_party
 );
 """
     
@@ -169,6 +205,7 @@ INSERT OR IGNORE INTO cookies (
     run_su(f"cp '{cookie_db}' '{tmp_db}'")
     run_su(f"chmod 666 '{tmp_db}'")
     
+    # Tìm sqlite3 trong hệ thống
     sqlite3_path = None
     for path in ["/system/bin/sqlite3", "/system/xbin/sqlite3", "/data/data/com.termux/files/usr/bin/sqlite3"]:
         check = run_su(f"[ -f '{path}' ] && echo OK")
@@ -180,19 +217,25 @@ INSERT OR IGNORE INTO cookies (
         print("❌ Không tìm thấy sqlite3! Cài: pkg install sqlite3")
         return
     
+    # Chạy SQL script
     cmd = f"{sqlite3_path} '{tmp_db}' < '{sql_file}'"
     run_su(cmd)
     
-    verify = run_su(f"{sqlite3_path} '{tmp_db}' \"SELECT value FROM cookies WHERE name='.ROBLOSECURITY'\"")
+    # Xác minh cookie đã được ghi thành công
+    verify = run_su(f"{sqlite3_path} '{tmp_db}' \"SELECT value FROM cookies WHERE name='.ROBLOSECURITY' AND host_key LIKE '%.roblox.com'\"")
     
     if verify and len(verify) > 10:
+        # Copy back và set quyền
         run_su(f"cp '{tmp_db}' '{cookie_db}'")
         run_su(f"chmod 660 '{cookie_db}'")
+        
+        # Lấy owner/group đúng
         owner = run_su(f"stat -c %U '{cookie_db}'")
         group = run_su(f"stat -c %G '{cookie_db}'")
         if owner and group:
             run_su(f"chown {owner}:{group} '{cookie_db}'")
         
+        # Dọn dẹp
         run_su(f"rm -f '{tmp_db}'")
         os.remove(sql_file)
         
@@ -200,9 +243,13 @@ INSERT OR IGNORE INTO cookies (
         print("📌 Khởi động lại Roblox để áp dụng")
         
         if input("\n🗑️ Xóa file cookie? (y/n): ").lower() == 'y':
-            os.remove(cookie_path)
-            print("✅ Đã xóa file cookie!")
+            try:
+                os.remove(cookie_path)
+                print("✅ Đã xóa file cookie!")
+            except:
+                print("⚠️ Không thể xóa file cookie")
     else:
+        # Khôi phục backup nếu thất bại
         run_su(f"cp '{backup_path}' '{cookie_db}'")
         run_su(f"chmod 660 '{cookie_db}'")
         run_su(f"rm -f '{tmp_db}'")
