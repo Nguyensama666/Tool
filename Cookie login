@@ -1,7 +1,3 @@
-
-
-# 2. Tạo file mới từ đầu (copy nguyên block dưới đây)
-cat > ~/cookie_login.py << 'EOF'
 #!/data/data/com.termux/files/usr/bin/python3
 import os
 import subprocess
@@ -242,7 +238,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-EOF
-
-# 3. Chạy tool
-python ~/cookie_login.py
