@@ -7,6 +7,7 @@ import json
 import sqlite3
 import signal
 import termios
+import tty
 
 # Bắt signal Ctrl+C để thoát đúng cách
 def signal_handler(sig, frame):
@@ -20,23 +21,80 @@ ANDROID_DATA = "/sdcard/Android/data"
 CONFIG_FILE = "/sdcard/Download/roblox_config.json"
 selected_package = None
 
-def flush_input():
-    """Xóa input buffer để tránh bị đơ"""
+def get_input(prompt):
+    """Lấy input từ người dùng - KHÔNG bị đơ"""
+    # Flush input buffer
     try:
         termios.tcflush(sys.stdin, termios.TCIOFLUSH)
     except:
         pass
+    
+    # Hiển thị prompt
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    
+    # Đọc input từ stdin
+    try:
+        # Lấy 1 ký tự từ stdin
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        
+        # Nếu là Enter thì trả về chuỗi rỗng
+        if ch == '\r' or ch == '\n':
+            return ''
+        return ch
+    except:
+        return ''
 
 def safe_input(prompt):
-    """Lấy input an toàn, không bị đơ"""
+    """Lấy input an toàn, hỗ trợ nhập nhiều ký tự"""
     flush_input()
     try:
+        # Dùng input bình thường nhưng đã flush
         return input(prompt)
     except KeyboardInterrupt:
         print("\n👋 Thoát...")
         sys.exit(0)
+    except Exception as e:
+        # Nếu input bị lỗi, dùng cách khác
+        return raw_input_fallback(prompt)
+
+def raw_input_fallback(prompt):
+    """Fallback khi input bị lỗi"""
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    result = ""
+    while True:
+        try:
+            ch = sys.stdin.read(1)
+            if ch == '\n' or ch == '\r':
+                break
+            if ch == '\x7f' or ch == '\x08':  # Backspace
+                if result:
+                    result = result[:-1]
+                    sys.stdout.write('\b \b')
+                    sys.stdout.flush()
+            else:
+                result += ch
+                sys.stdout.write(ch)
+                sys.stdout.flush()
+        except:
+            break
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+    return result
+
+def flush_input():
+    """Xóa input buffer"""
+    try:
+        termios.tcflush(sys.stdin, termios.TCIOFLUSH)
     except:
-        return ""
+        pass
 
 def load_config():
     global selected_package
@@ -317,7 +375,6 @@ def login_cookie():
         print("✅ ĐĂNG NHẬP THÀNH CÔNG!")
         print("="*50)
         
-        # Hỏi xóa file cookie (dùng safe_input)
         delete_choice = safe_input("\n🗑️ Xóa file cookie? (y/n): ").lower()
         if delete_choice == 'y':
             try:
@@ -413,42 +470,65 @@ def manual_fix():
     start_app()
 
 def main():
+    # Set terminal raw mode để xử lý input tốt hơn
+    try:
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        tty.setraw(fd)
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    except:
+        pass
+    
     load_config()
     
     # Kiểm tra root
     if not run_su("echo OK"):
-        print("❌ CẦN ROOT! Script này yêu cầu quyền root.")
+        print("\n❌ CẦN ROOT! Script này yêu cầu quyền root.")
         print("💡 Hãy cài Magisk hoặc SuperSU.")
         return
     
+    # Reset terminal về chế độ bình thường
+    os.system('stty sane')
+    
     while True:
-        print("\n" + "="*50)
-        print("   🎮 ROBLOX COOKIE LOGIN TOOL")
-        print("="*50)
-        print(f"📦 Package: {selected_package or 'CHƯA CHỌN'}")
-        print("-"*50)
-        print("1. 🔧 Chọn package (quét Android/data)")
-        print("2. 🍪 Đăng nhập cookie")
-        print("3. 📊 Kiểm tra cookie hiện tại")
-        print("4. 🔨 Sửa lỗi thủ công")
-        print("0. 🚪 Thoát")
-        print("-"*50)
-        
-        choice = safe_input("➤ Chọn: ").strip()
-        
-        if choice == '1':
-            select_package()
-        elif choice == '2':
-            login_cookie()
-        elif choice == '3':
-            check_cookie_status()
-        elif choice == '4':
-            manual_fix()
-        elif choice == '0':
-            print("\n👋 Bye!")
+        try:
+            print("\n" + "="*50)
+            print("   🎮 ROBLOX COOKIE LOGIN TOOL")
+            print("="*50)
+            print(f"📦 Package: {selected_package or 'CHƯA CHỌN'}")
+            print("-"*50)
+            print("1. 🔧 Chọn package (quét Android/data)")
+            print("2. 🍪 Đăng nhập cookie")
+            print("3. 📊 Kiểm tra cookie hiện tại")
+            print("4. 🔨 Sửa lỗi thủ công")
+            print("0. 🚪 Thoát")
+            print("-"*50)
+            
+            choice = safe_input("➤ Chọn: ").strip()
+            
+            if choice == '1':
+                select_package()
+            elif choice == '2':
+                login_cookie()
+            elif choice == '3':
+                check_cookie_status()
+            elif choice == '4':
+                manual_fix()
+            elif choice == '0':
+                print("\n👋 Bye!")
+                break
+            else:
+                print("❌ Lựa chọn không hợp lệ!")
+        except KeyboardInterrupt:
+            print("\n👋 Thoát...")
             break
-        else:
-            print("❌ Lựa chọn không hợp lệ!")
+        except Exception as e:
+            print(f"⚠️ Lỗi: {e}")
+            # Reset terminal
+            os.system('stty sane')
+            time.sleep(1)
 
 if __name__ == "__main__":
+    # Reset terminal trước khi chạy
+    os.system('stty sane')
     main()
