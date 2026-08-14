@@ -1,15 +1,42 @@
 #!/data/data/com.termux/files/usr/bin/python3
 import os
+import sys
 import subprocess
 import time
 import json
 import sqlite3
-import shutil
+import signal
+import termios
+
+# Bắt signal Ctrl+C để thoát đúng cách
+def signal_handler(sig, frame):
+    print("\n\n👋 Thoát...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 DOWNLOAD_DIR = "/sdcard/Download"
 ANDROID_DATA = "/sdcard/Android/data"
 CONFIG_FILE = "/sdcard/Download/roblox_config.json"
 selected_package = None
+
+def flush_input():
+    """Xóa input buffer để tránh bị đơ"""
+    try:
+        termios.tcflush(sys.stdin, termios.TCIOFLUSH)
+    except:
+        pass
+
+def safe_input(prompt):
+    """Lấy input an toàn, không bị đơ"""
+    flush_input()
+    try:
+        return input(prompt)
+    except KeyboardInterrupt:
+        print("\n👋 Thoát...")
+        sys.exit(0)
+    except:
+        return ""
 
 def load_config():
     global selected_package
@@ -79,7 +106,7 @@ def select_package():
         return False
     
     try:
-        num = int(input(f"\n➤ Chọn số (1-{len(packages)}, 0=thoát): "))
+        num = int(safe_input(f"\n➤ Chọn số (1-{len(packages)}, 0=thoát): "))
         if num == 0:
             return False
         if 1 <= num <= len(packages):
@@ -105,7 +132,6 @@ def fix_permissions():
     cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
     db_dir = f"/data/data/{selected_package}/app_webview/Default"
     
-    # Lấy UID/GID của app
     uid = run_su(f"stat -c %u '{db_dir}'")
     gid = run_su(f"stat -c %g '{db_dir}'")
     
@@ -117,53 +143,23 @@ def fix_permissions():
         return True
     return False
 
-def verify_cookie_in_db(db_path):
-    """Kiểm tra cookie đã được ghi đúng chưa"""
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT name, value, host_key, is_secure, is_httponly, path 
-            FROM cookies 
-            WHERE name = '.ROBLOSECURITY'
-        """)
-        result = cursor.fetchone()
-        conn.close()
-        
-        if result:
-            print(f"✅ Cookie đã được ghi:")
-            print(f"   Name: {result[0]}")
-            print(f"   Host: {result[2]}")
-            print(f"   Secure: {result[3]}, HttpOnly: {result[4]}")
-            print(f"   Path: {result[5]}")
-            print(f"   Length: {len(result[1])} chars")
-            return True
-        return False
-    except:
-        return False
-
 def clear_app_cache():
-    """Xóa cache của app"""
     global selected_package
     print("🧹 Đang xóa cache...")
     run_su(f"pm clear --cache-only {selected_package}")
     time.sleep(1)
 
 def force_stop_app():
-    """Force stop app"""
     global selected_package
     print("⏹ Đang force stop...")
     run_su(f"am force-stop {selected_package}")
     time.sleep(2)
 
 def start_app():
-    """Start app bằng intent đúng"""
     global selected_package
     print("🚀 Đang khởi động Roblox...")
-    # Thử nhiều cách start
     run_su(f"monkey -p {selected_package} -c android.intent.category.LAUNCHER 1")
     time.sleep(1)
-    # Backup: start bằng activity
     run_su(f"am start -n {selected_package}/com.roblox.client.RobloxActivity")
     time.sleep(1)
 
@@ -177,7 +173,7 @@ def login_cookie():
     print(f"\n📦 Package: {selected_package}")
     print("="*50)
     
-    filename = input("➤ Tên file cookie trong Download: ").strip()
+    filename = safe_input("➤ Tên file cookie trong Download: ").strip()
     if not filename:
         print("❌ Không được để trống!")
         return
@@ -203,7 +199,6 @@ def login_cookie():
     
     cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
     
-    # Kiểm tra database tồn tại
     check = run_su(f"[ -f '{cookie_db}' ] && echo OK")
     if not check:
         print(f"❌ Không tìm thấy database tại: {cookie_db}")
@@ -211,16 +206,12 @@ def login_cookie():
         print("💡 Hãy mở Roblox 1 lần trước khi inject cookie.")
         return
     
-    # Backup database
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     backup_path = os.path.join(DOWNLOAD_DIR, f"Cookies_backup_{timestamp}.db")
     run_su(f"cp '{cookie_db}' '{backup_path}'")
     print(f"💾 Đã backup: Cookies_backup_{timestamp}.db")
     
-    # Force stop app
     force_stop_app()
-    
-    # Clear cache
     clear_app_cache()
     
     print("✍️ Đang ghi cookie...")
@@ -229,18 +220,15 @@ def login_cookie():
     sdcard_db = os.path.join(DOWNLOAD_DIR, "temp_cookies.db")
     
     try:
-        # Copy database ra sdcard
         run_su(f"cp '{cookie_db}' '{sdcard_db}'")
         run_su(f"chmod 666 '{sdcard_db}'")
         
         if not os.path.exists(sdcard_db):
             raise Exception("Không thể copy database ra sdcard")
         
-        # Kết nối database
         conn = sqlite3.connect(sdcard_db)
         cursor = conn.cursor()
         
-        # Lấy danh sách cột
         columns = get_table_columns(cursor, "cookies")
         has_top_frame = 'top_frame_site_key' in columns
         has_source_scheme = 'source_scheme' in columns
@@ -250,13 +238,10 @@ def login_cookie():
         
         print(f"📋 Database columns: {len(columns)} columns")
         
-        # Xóa cookie cũ nếu có
         cursor.execute("DELETE FROM cookies WHERE name = '.ROBLOSECURITY'")
         
-        # Tạo cookie mới với đầy đủ thông tin
         current_time = int(time.time() * 1000000)
         
-        # Build insert query dựa trên các cột có sẵn
         fields = [
             "creation_utc",
             "host_key", 
@@ -279,15 +264,14 @@ def login_cookie():
             safe_cookie,
             "/",
             0,
-            1,  # is_secure = 1 (QUAN TRỌNG)
-            1,  # is_httponly = 1 (QUAN TRỌNG)
+            1,
+            1,
             current_time,
             0,
             1,
             1
         ]
         
-        # Thêm các field optional nếu có
         if has_encrypted_value:
             fields.append("encrypted_value")
             values.append("")
@@ -308,7 +292,6 @@ def login_cookie():
             fields.append("is_same_party")
             values.append(0)
         
-        # Tạo query
         placeholders = ','.join(['?'] * len(fields))
         fields_str = ','.join(fields)
         query = f"INSERT INTO cookies ({fields_str}) VALUES ({placeholders})"
@@ -316,7 +299,6 @@ def login_cookie():
         cursor.execute(query, values)
         conn.commit()
         
-        # Kiểm tra đã ghi thành công
         cursor.execute("SELECT COUNT(*) FROM cookies WHERE name = '.ROBLOSECURITY'")
         count = cursor.fetchone()[0]
         
@@ -325,13 +307,9 @@ def login_cookie():
         
         conn.close()
         
-        # Copy database về lại
         run_su(f"cp '{sdcard_db}' '{cookie_db}'")
-        
-        # Fix permissions
         fix_permissions()
         
-        # Xóa file temp
         if os.path.exists(sdcard_db):
             os.remove(sdcard_db)
         
@@ -339,15 +317,15 @@ def login_cookie():
         print("✅ ĐĂNG NHẬP THÀNH CÔNG!")
         print("="*50)
         
-        # Xóa file cookie nếu muốn
-        if input("\n🗑️ Xóa file cookie? (y/n): ").lower() == 'y':
+        # Hỏi xóa file cookie (dùng safe_input)
+        delete_choice = safe_input("\n🗑️ Xóa file cookie? (y/n): ").lower()
+        if delete_choice == 'y':
             try:
                 os.remove(cookie_path)
                 print("✅ Đã xóa file cookie!")
             except:
                 print("⚠️ Không thể xóa file cookie")
         
-        # Khởi động Roblox
         print("\n🔄 Khởi động Roblox...")
         start_app()
         
@@ -360,7 +338,6 @@ def login_cookie():
         
     except Exception as e:
         print(f"❌ Lỗi: {e}")
-        # Khôi phục backup
         if os.path.exists(backup_path):
             print("♻️ Đang khôi phục backup...")
             run_su(f"cp '{backup_path}' '{cookie_db}'")
@@ -370,7 +347,6 @@ def login_cookie():
             os.remove(sdcard_db)
 
 def check_cookie_status():
-    """Kiểm tra trạng thái cookie hiện tại"""
     global selected_package
     
     if not selected_package:
@@ -417,7 +393,6 @@ def check_cookie_status():
             print("❌ Lỗi đọc cookie!")
 
 def manual_fix():
-    """Sửa lỗi thủ công"""
     global selected_package
     
     if not selected_package:
@@ -426,16 +401,10 @@ def manual_fix():
     
     print("\n🔧 Sửa lỗi thủ công...")
     
-    # Force stop
     force_stop_app()
-    
-    # Clear cache
     clear_app_cache()
-    
-    # Fix permissions
     fix_permissions()
     
-    # Xóa journal file
     cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
     run_su(f"rm -f '{cookie_db}-journal'")
     
@@ -445,6 +414,12 @@ def manual_fix():
 
 def main():
     load_config()
+    
+    # Kiểm tra root
+    if not run_su("echo OK"):
+        print("❌ CẦN ROOT! Script này yêu cầu quyền root.")
+        print("💡 Hãy cài Magisk hoặc SuperSU.")
+        return
     
     while True:
         print("\n" + "="*50)
@@ -459,27 +434,21 @@ def main():
         print("0. 🚪 Thoát")
         print("-"*50)
         
-        c = input("➤ Chọn: ").strip()
+        choice = safe_input("➤ Chọn: ").strip()
         
-        if c == '1':
+        if choice == '1':
             select_package()
-        elif c == '2':
+        elif choice == '2':
             login_cookie()
-        elif c == '3':
+        elif choice == '3':
             check_cookie_status()
-        elif c == '4':
+        elif choice == '4':
             manual_fix()
-        elif c == '0':
+        elif choice == '0':
             print("\n👋 Bye!")
             break
         else:
             print("❌ Lựa chọn không hợp lệ!")
 
 if __name__ == "__main__":
-    # Kiểm tra root
-    if not run_su("echo OK"):
-        print("❌ CẦN ROOT! Script này yêu cầu quyền root.")
-        print("💡 Hãy cài Magisk hoặc SuperSU.")
-        exit(1)
-    
     main()
