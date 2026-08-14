@@ -1,5 +1,4 @@
-# 1. Xóa tất cả file cũ
-rm -f ~/cookie_login.py ~/.cookie_login.py
+
 
 # 2. Tạo file mới từ đầu (copy nguyên block dưới đây)
 cat > ~/cookie_login.py << 'EOF'
