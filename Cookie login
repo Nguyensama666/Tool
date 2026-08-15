@@ -1,14 +1,82 @@
 pkg install python
 pkg install sqlite
+cat > ~/check_cookie_new.py << 'EOF'
+#!/data/data/com.termux/files/usr/bin/python3
+import requests
+import sys
+import json
+
+# Đọc cookie
+try:
+    with open("/sdcard/Download/cookie.txt", 'r') as f:
+        cookie = f.read().strip()
+except:
+    print("❌ Không tìm thấy cookie.txt!")
+    sys.exit(1)
+
+if not cookie or len(cookie) < 50:
+    print("❌ Cookie không hợp lệ!")
+    sys.exit(1)
+
+print(f"🔍 Đang kiểm tra cookie...")
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Cookie': f'.ROBLOSECURITY={cookie}'
+}
+
+# API mới của Roblox
+apis = [
+    'https://users.roblox.com/v1/users/authenticated',
+    'https://www.roblox.com/mobileapi/userinfo',
+    'https://economy.roblox.com/v1/user/currency',
+    'https://notifications.roblox.com/v2/notifications/unread-count'
+]
+
+for api in apis:
+    try:
+        print(f"  Đang thử: {api.split('/')[-1]}...")
+        response = requests.get(api, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            print("\n✅ COOKIE HỢP LỆ!")
+            try:
+                data = response.json()
+                if 'id' in data:
+                    print(f"   User ID: {data.get('id')}")
+                if 'name' in data:
+                    print(f"   Username: {data.get('name')}")
+                if 'displayName' in data:
+                    print(f"   Display Name: {data.get('displayName')}")
+                if 'robux' in data:
+                    print(f"   Robux: {data.get('robux')}")
+                print("\n🎮 Cookie có thể dùng để login!")
+                sys.exit(0)
+            except:
+                print(f"   Response: {response.text[:100]}")
+                sys.exit(0)
+        elif response.status_code == 401:
+            print("❌ Cookie hết hạn!")
+            sys.exit(1)
+        elif response.status_code == 403:
+            print("❌ Cookie bị khóa!")
+            sys.exit(1)
+    except Exception as e:
+        pass
+
+print("\n❌ Không thể xác minh cookie (có thể API đã thay đổi)")
+print("💡 Cookie vẫn có thể dùng để login")
+EOF
+
 cat > ~/roblox_login.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ==========================================
-#   ROBLOX COOKIE LOGIN TOOL v2.0
-#   Chỉ dùng cookie từ file cookie.txt
+#   ROBLOX COOKIE LOGIN TOOL v3.0
+#   Tự động đọc cookie từ file, check bằng Python
 # ==========================================
 
-VERSION="2.0"
+VERSION="3.0"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -20,104 +88,14 @@ echo "   ROBLOX COOKIE LOGIN TOOL v$VERSION"
 echo -e "==========================================${NC}"
 
 # ==========================================
-# HÀM CHECK COOKIE
+# KIỂM TRA FILE COOKIE.TXT
 # ==========================================
-check_cookie() {
-    local cookie="$1"
-    echo ""
-    echo -e "${YELLOW}🔍 ĐANG KIỂM TRA COOKIE...${NC}"
-    
-    local RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/check.json \
-        -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-        -H "Cookie: .ROBLOSECURITY=${cookie}" \
-        https://users.roblox.com/v1/users/authenticated)
-    
-    if [ "$RESPONSE" = "200" ]; then
-        local USERNAME=$(cat /tmp/check.json | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4)
-        local USER_ID=$(cat /tmp/check.json | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-        echo -e "${GREEN}✅ COOKIE HỢP LỆ!${NC}"
-        echo -e "   User: ${USERNAME:-Unknown}"
-        echo -e "   ID: ${USER_ID:-Unknown}"
-        rm -f /tmp/check.json
-        return 0
-    else
-        echo -e "${RED}❌ Cookie không hợp lệ! (HTTP $RESPONSE)${NC}"
-        echo -e "${YELLOW}💡 Cookie có thể đã hết hạn hoặc bị khóa${NC}"
-        rm -f /tmp/check.json
-        return 1
-    fi
-}
-
-# ==========================================
-# HÀM INJECT COOKIE
-# ==========================================
-inject_cookie() {
-    local cookie="$1"
-    
-    echo ""
-    echo -e "${YELLOW}📋 BẮT ĐẦU INJECT COOKIE...${NC}"
-    
-    echo "⏹ Force stop Roblox..."
-    su -c "am force-stop com.roblox.client" 2>/dev/null
-    sleep 2
-    
-    echo "📁 Tạo thư mục..."
-    su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
-    
-    if [ ! -f "/sdcard/Download/cklogin/Cookies.db" ] && [ ! -f "/sdcard/Download/Cookies.db" ]; then
-        echo -e "${RED}❌ Không tìm thấy file mẫu Cookies.db!${NC}"
-        echo "💡 Đặt file Cookies.db vào /sdcard/Download/cklogin/ hoặc /sdcard/Download/"
-        return 1
-    fi
-    
-    if [ -f "/sdcard/Download/cklogin/Cookies.db" ]; then
-        cp /sdcard/Download/cklogin/Cookies.db /sdcard/Download/Cookies.db
-    else
-        cp /sdcard/Download/Cookies.db /sdcard/Download/Cookies.db.tmp
-        mv /sdcard/Download/Cookies.db.tmp /sdcard/Download/Cookies.db
-    fi
-    chmod 666 /sdcard/Download/Cookies.db 2>/dev/null
-    
-    local ESCAPED=$(echo "$cookie" | sed "s/'/''/g")
-    
-    sqlite3 /sdcard/Download/Cookies.db "DELETE FROM cookies WHERE name='.ROBLOSECURITY';" 2>/dev/null
-    
-    sqlite3 /sdcard/Download/Cookies.db "INSERT INTO cookies (creation_utc, host_key, name, value, path, expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, encrypted_value, samesite, source_scheme, source_port, is_same_party) VALUES (strftime('%s','now')*1000000, '.roblox.com', '.ROBLOSECURITY', '${ESCAPED}', '/', 0, 1, 1, strftime('%s','now')*1000000, 1, 1, 1, '', -1, 0, -1, 0);" 2>/dev/null
-    
-    local COUNT=$(sqlite3 /sdcard/Download/Cookies.db "SELECT COUNT(*) FROM cookies WHERE name='.ROBLOSECURITY';" 2>/dev/null)
-    if [ "$COUNT" = "0" ]; then
-        echo -e "${RED}❌ Cookie không được ghi!${NC}"
-        rm -f /sdcard/Download/Cookies.db
-        return 1
-    fi
-    echo -e "${GREEN}✅ Đã ghi $COUNT records${NC}"
-    
-    echo "📋 Copy vào Roblox..."
-    su -c "cp /sdcard/Download/Cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
-    su -c "chown 10105:10105 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
-    su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
-    su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
-    
-    rm -f /sdcard/Download/Cookies.db
-    
-    echo -e "${GREEN}=========================================="
-    echo "✅ ĐĂNG NHẬP THÀNH CÔNG!"
-    echo -e "==========================================${NC}"
-    return 0
-}
-
-# ==========================================
-# MAIN
-# ==========================================
-
-# 1. Kiểm tra file cookie.txt
 if [ ! -f "/sdcard/Download/cookie.txt" ]; then
     echo -e "${RED}❌ Không tìm thấy /sdcard/Download/cookie.txt!${NC}"
     echo -e "${YELLOW}💡 Hãy tạo file /sdcard/Download/cookie.txt và dán cookie vào${NC}"
     exit 1
 fi
 
-# 2. Đọc cookie từ file
 COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
 if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
     echo -e "${RED}❌ Cookie trong file không hợp lệ (quá ngắn)!${NC}"
@@ -128,21 +106,78 @@ fi
 echo -e "${GREEN}✅ Đọc cookie từ /sdcard/Download/cookie.txt${NC}"
 echo -e "${YELLOW}💡 Cookie: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
 
-# 3. Check cookie
-check_cookie "$COOKIE"
+# ==========================================
+# CHECK COOKIE BẰNG PYTHON
+# ==========================================
+echo ""
+echo -e "${YELLOW}🔍 ĐANG KIỂM TRA COOKIE...${NC}"
+
+python3 ~/check_cookie_new.py
 if [ $? -ne 0 ]; then
     echo ""
     echo -e "${RED}❌ Cookie không hợp lệ. Thoát.${NC}"
     exit 1
 fi
 
-# 4. Inject cookie
-inject_cookie "$COOKIE"
-if [ $? -ne 0 ]; then
+echo ""
+echo -e "${GREEN}✅ COOKIE HỢP LỆ! TIẾP TỤC...${NC}"
+
+# ==========================================
+# INJECT COOKIE
+# ==========================================
+echo ""
+echo -e "${YELLOW}📋 BẮT ĐẦU INJECT COOKIE...${NC}"
+
+echo "⏹ Force stop Roblox..."
+su -c "am force-stop com.roblox.client" 2>/dev/null
+sleep 2
+
+echo "📁 Tạo thư mục..."
+su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
+
+if [ ! -f "/sdcard/Download/cklogin/Cookies.db" ] && [ ! -f "/sdcard/Download/Cookies.db" ]; then
+    echo -e "${RED}❌ Không tìm thấy file mẫu Cookies.db!${NC}"
+    echo "💡 Đặt file Cookies.db vào /sdcard/Download/cklogin/ hoặc /sdcard/Download/"
     exit 1
 fi
 
-# 5. Mở Roblox
+if [ -f "/sdcard/Download/cklogin/Cookies.db" ]; then
+    cp /sdcard/Download/cklogin/Cookies.db /sdcard/Download/Cookies.db
+else
+    cp /sdcard/Download/Cookies.db /sdcard/Download/Cookies.db.tmp
+    mv /sdcard/Download/Cookies.db.tmp /sdcard/Download/Cookies.db
+fi
+chmod 666 /sdcard/Download/Cookies.db 2>/dev/null
+
+ESCAPED=$(echo "$COOKIE" | sed "s/'/''/g")
+
+sqlite3 /sdcard/Download/Cookies.db "DELETE FROM cookies WHERE name='.ROBLOSECURITY';" 2>/dev/null
+
+sqlite3 /sdcard/Download/Cookies.db "INSERT INTO cookies (creation_utc, host_key, name, value, path, expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, encrypted_value, samesite, source_scheme, source_port, is_same_party) VALUES (strftime('%s','now')*1000000, '.roblox.com', '.ROBLOSECURITY', '${ESCAPED}', '/', 0, 1, 1, strftime('%s','now')*1000000, 1, 1, 1, '', -1, 0, -1, 0);" 2>/dev/null
+
+COUNT=$(sqlite3 /sdcard/Download/Cookies.db "SELECT COUNT(*) FROM cookies WHERE name='.ROBLOSECURITY';" 2>/dev/null)
+if [ "$COUNT" = "0" ]; then
+    echo -e "${RED}❌ Cookie không được ghi!${NC}"
+    rm -f /sdcard/Download/Cookies.db
+    exit 1
+fi
+echo -e "${GREEN}✅ Đã ghi $COUNT records${NC}"
+
+echo "📋 Copy vào Roblox..."
+su -c "cp /sdcard/Download/Cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chown 10105:10105 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
+
+rm -f /sdcard/Download/Cookies.db
+
+echo -e "${GREEN}=========================================="
+echo "✅ ĐĂNG NHẬP THÀNH CÔNG!"
+echo -e "==========================================${NC}"
+
+# ==========================================
+# MỞ ROBLOX
+# ==========================================
 echo ""
 echo -e "${YELLOW}🚀 MỞ ROBLOX...${NC}"
 su -c "am force-stop com.roblox.client" 2>/dev/null
