@@ -1,534 +1,120 @@
-#!/data/data/com.termux/files/usr/bin/python3
-import os
-import sys
-import subprocess
-import time
-import json
-import sqlite3
-import signal
-import termios
-import tty
+cat > ~/tool_style.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
 
-# Bắt signal Ctrl+C để thoát đúng cách
-def signal_handler(sig, frame):
-    print("\n\n👋 Thoát...")
-    sys.exit(0)
+echo "=========================================="
+echo "   ROBLOX COOKIE TOOL STYLE"
+echo "=========================================="
 
-signal.signal(signal.SIGINT, signal_handler)
+# Đọc cookie từ file
+if [ ! -f "/sdcard/Download/cookie.txt" ]; then
+    echo "❌ Không tìm thấy cookie.txt"
+    exit 1
+fi
 
-DOWNLOAD_DIR = "/sdcard/Download"
-ANDROID_DATA = "/sdcard/Android/data"
-CONFIG_FILE = "/sdcard/Download/roblox_config.json"
-selected_package = None
+COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
+echo "✅ Cookie: ${COOKIE:0:30}..."
 
-def get_input(prompt):
-    """Lấy input từ người dùng - KHÔNG bị đơ"""
-    # Flush input buffer
-    try:
-        termios.tcflush(sys.stdin, termios.TCIOFLUSH)
-    except:
-        pass
-    
-    # Hiển thị prompt
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
-    
-    # Đọc input từ stdin
-    try:
-        # Lấy 1 ký tự từ stdin
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        
-        # Nếu là Enter thì trả về chuỗi rỗng
-        if ch == '\r' or ch == '\n':
-            return ''
-        return ch
-    except:
-        return ''
+# Kiểm tra cookie với API
+echo "🔍 Kiểm tra cookie..."
+RESPONSE=$(curl -s -o /tmp/user.json -w "%{http_code}" \
+    -H "User-Agent: Mozilla/5.0" \
+    -H "Cookie: .ROBLOSECURITY=${COOKIE}" \
+    https://users.roblox.com/v1/users/authenticated)
 
-def safe_input(prompt):
-    """Lấy input an toàn, hỗ trợ nhập nhiều ký tự"""
-    flush_input()
-    try:
-        # Dùng input bình thường nhưng đã flush
-        return input(prompt)
-    except KeyboardInterrupt:
-        print("\n👋 Thoát...")
-        sys.exit(0)
-    except Exception as e:
-        # Nếu input bị lỗi, dùng cách khác
-        return raw_input_fallback(prompt)
+if [ "$RESPONSE" != "200" ]; then
+    echo "❌ Cookie không hợp lệ!"
+    exit 1
+fi
 
-def raw_input_fallback(prompt):
-    """Fallback khi input bị lỗi"""
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
-    result = ""
-    while True:
-        try:
-            ch = sys.stdin.read(1)
-            if ch == '\n' or ch == '\r':
-                break
-            if ch == '\x7f' or ch == '\x08':  # Backspace
-                if result:
-                    result = result[:-1]
-                    sys.stdout.write('\b \b')
-                    sys.stdout.flush()
-            else:
-                result += ch
-                sys.stdout.write(ch)
-                sys.stdout.flush()
-        except:
-            break
-    sys.stdout.write('\n')
-    sys.stdout.flush()
-    return result
+USERNAME=$(cat /tmp/user.json | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+USER_ID=$(cat /tmp/user.json | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+echo "✅ COOKIE HỢP LỆ!"
+echo "   User: $USERNAME"
+echo "   ID: $USER_ID"
+rm -f /tmp/user.json
 
-def flush_input():
-    """Xóa input buffer"""
-    try:
-        termios.tcflush(sys.stdin, termios.TCIOFLUSH)
-    except:
-        pass
+# Xóa sạch data Roblox
+echo "🗑️ Xóa data Roblox..."
+su -c "am force-stop com.roblox.client"
+su -c "pm clear com.roblox.client"
+su -c "rm -rf /data/data/com.roblox.client"
+sleep 2
 
-def load_config():
-    global selected_package
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-                pkg = config.get('package', '')
-                if pkg:
-                    selected_package = pkg
-                    return True
-        except:
-            pass
-    return False
+# Tạo thư mục
+su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default"
 
-def save_config():
-    try:
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump({'package': selected_package}, f)
-    except:
-        pass
+# Tạo database giống tool người khác
+rm -f /sdcard/Download/cookies.db
 
-def run_su(cmd):
-    try:
-        result = subprocess.run(f"su -c '{cmd}'", shell=True, capture_output=True, text=True, timeout=20)
-        return result.stdout.strip() if result.returncode == 0 else None
-    except:
-        return None
+sqlite3 /sdcard/Download/cookies.db << 'EOSQL'
+CREATE TABLE cookies(
+    creation_utc INTEGER NOT NULL,
+    host_key TEXT NOT NULL,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
+    path TEXT NOT NULL,
+    expires_utc INTEGER NOT NULL,
+    is_secure INTEGER NOT NULL,
+    is_httponly INTEGER NOT NULL,
+    last_access_utc INTEGER NOT NULL,
+    has_expires INTEGER NOT NULL DEFAULT 1,
+    is_persistent INTEGER NOT NULL DEFAULT 1,
+    priority INTEGER NOT NULL DEFAULT 1,
+    encrypted_value BLOB DEFAULT "",
+    samesite INTEGER NOT NULL DEFAULT -1,
+    source_scheme INTEGER NOT NULL DEFAULT 0,
+    source_port INTEGER NOT NULL DEFAULT -1,
+    is_same_party INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (host_key, name, path)
+);
+CREATE INDEX cookies_unique_index ON cookies(host_key, name, path);
+EOSQL
 
-def list_android_data():
-    print("\n🔍 Đang quét /sdcard/Android/data/...")
-    
-    if not os.path.exists(ANDROID_DATA):
-        print("❌ Không tìm thấy thư mục Android/data")
-        return []
-    
-    try:
-        all_dirs = sorted(os.listdir(ANDROID_DATA))
-    except PermissionError:
-        print("❌ Không có quyền đọc. Đang thử với root...")
-        out = run_su(f"ls {ANDROID_DATA}")
-        if not out:
-            print("❌ Vẫn không đọc được!")
-            return []
-        all_dirs = sorted(out.split('\n'))
-    
-    roblox_dirs = [d for d in all_dirs if 'roblox' in d.lower()]
-    
-    if not roblox_dirs:
-        print("❌ Không tìm thấy package Roblox nào!")
-        return []
-    
-    print(f"\n🎮 Tìm thấy {len(roblox_dirs)} package Roblox:\n")
-    print("-" * 60)
-    for i, d in enumerate(roblox_dirs, 1):
-        print(f"  {i}. {d}")
-    print("-" * 60)
-    
-    return roblox_dirs
+# Inject cookie
+sqlite3 /sdcard/Download/cookies.db << EOF
+INSERT OR REPLACE INTO cookies (
+    creation_utc, host_key, name, value, path, expires_utc,
+    is_secure, is_httponly, last_access_utc, has_expires,
+    is_persistent, priority, encrypted_value, samesite,
+    source_scheme, source_port, is_same_party
+) VALUES (
+    strftime('%s','now')*1000000,
+    '.roblox.com',
+    '.ROBLOSECURITY',
+    '${COOKIE}',
+    '/',
+    0,
+    1,
+    1,
+    strftime('%s','now')*1000000,
+    1,
+    1,
+    1,
+    '',
+    -1,
+    0,
+    -1,
+    0
+);
+EOF
 
-def select_package():
-    global selected_package
-    
-    packages = list_android_data()
-    if not packages:
-        print("⚠️ Vui lòng thử lại hoặc nhập tay!")
-        return False
-    
-    try:
-        num = int(safe_input(f"\n➤ Chọn số (1-{len(packages)}, 0=thoát): "))
-        if num == 0:
-            return False
-        if 1 <= num <= len(packages):
-            selected_package = packages[num-1]
-            save_config()
-            print(f"✅ Đã chọn: {selected_package}")
-            return True
-        else:
-            print("❌ Số không hợp lệ!")
-            return False
-    except ValueError:
-        print("❌ Phải nhập số!")
-        return False
+# Kiểm tra
+COUNT=$(sqlite3 /sdcard/Download/cookies.db "SELECT COUNT(*) FROM cookies WHERE name='.ROBLOSECURITY';")
+echo "✅ Đã ghi $COUNT records"
 
-def get_table_columns(cursor, table_name):
-    """Lấy danh sách các cột trong bảng"""
-    cursor.execute(f"PRAGMA table_info({table_name})")
-    return [col[1] for col in cursor.fetchall()]
+# Copy vào data
+USER_ID=$(su -c "stat -c %u /data/data/com.roblox.client")
+GROUP_ID=$(su -c "stat -c %g /data/data/com.roblox.client")
+su -c "cp /sdcard/Download/cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies"
+su -c "chown ${USER_ID}:${GROUP_ID} /data/data/com.roblox.client/app_webview/Default/Cookies"
+su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies"
 
-def fix_permissions():
-    """Fix permissions cho database"""
-    global selected_package
-    cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
-    db_dir = f"/data/data/{selected_package}/app_webview/Default"
-    
-    uid = run_su(f"stat -c %u '{db_dir}'")
-    gid = run_su(f"stat -c %g '{db_dir}'")
-    
-    if uid and gid:
-        run_su(f"chown {uid}:{gid} '{cookie_db}'")
-        run_su(f"chmod 660 '{cookie_db}'")
-        run_su(f"chown {uid}:{gid} '{db_dir}'")
-        run_su(f"chmod 771 '{db_dir}'")
-        return True
-    return False
+rm -f /sdcard/Download/cookies.db
 
-def clear_app_cache():
-    global selected_package
-    print("🧹 Đang xóa cache...")
-    run_su(f"pm clear --cache-only {selected_package}")
-    time.sleep(1)
+echo "=========================================="
+echo "✅ ĐĂNG NHẬP THÀNH CÔNG!"
+echo "   User: $USERNAME"
+echo "=========================================="
 
-def force_stop_app():
-    global selected_package
-    print("⏹ Đang force stop...")
-    run_su(f"am force-stop {selected_package}")
-    time.sleep(2)
-
-def start_app():
-    global selected_package
-    print("🚀 Đang khởi động Roblox...")
-    run_su(f"monkey -p {selected_package} -c android.intent.category.LAUNCHER 1")
-    time.sleep(1)
-    run_su(f"am start -n {selected_package}/com.roblox.client.RobloxActivity")
-    time.sleep(1)
-
-def login_cookie():
-    global selected_package
-    
-    if not selected_package:
-        print("\n⚠️ Chưa chọn package! Vào mục 1 trước.")
-        return
-    
-    print(f"\n📦 Package: {selected_package}")
-    print("="*50)
-    
-    filename = safe_input("➤ Tên file cookie trong Download: ").strip()
-    if not filename:
-        print("❌ Không được để trống!")
-        return
-    
-    cookie_path = os.path.join(DOWNLOAD_DIR, filename)
-    if not os.path.exists(cookie_path):
-        print(f"❌ Không tìm thấy file: {filename}")
-        return
-    
-    try:
-        with open(cookie_path, 'r') as f:
-            cookie = f.read().strip()
-        if not cookie:
-            print("❌ File rỗng!")
-            return
-        if len(cookie) < 50:
-            print("❌ Cookie quá ngắn! Có thể không hợp lệ.")
-            return
-        print(f"✅ Đã đọc cookie ({len(cookie)} ký tự)")
-    except Exception as e:
-        print(f"❌ Lỗi đọc file: {e}")
-        return
-    
-    cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
-    
-    check = run_su(f"[ -f '{cookie_db}' ] && echo OK")
-    if not check:
-        print(f"❌ Không tìm thấy database tại: {cookie_db}")
-        print("💡 Package có thể không dùng WebView hoặc chưa từng chạy!")
-        print("💡 Hãy mở Roblox 1 lần trước khi inject cookie.")
-        return
-    
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    backup_path = os.path.join(DOWNLOAD_DIR, f"Cookies_backup_{timestamp}.db")
-    run_su(f"cp '{cookie_db}' '{backup_path}'")
-    print(f"💾 Đã backup: Cookies_backup_{timestamp}.db")
-    
-    force_stop_app()
-    clear_app_cache()
-    
-    print("✍️ Đang ghi cookie...")
-    
-    safe_cookie = cookie.replace("'", "''")
-    sdcard_db = os.path.join(DOWNLOAD_DIR, "temp_cookies.db")
-    
-    try:
-        run_su(f"cp '{cookie_db}' '{sdcard_db}'")
-        run_su(f"chmod 666 '{sdcard_db}'")
-        
-        if not os.path.exists(sdcard_db):
-            raise Exception("Không thể copy database ra sdcard")
-        
-        conn = sqlite3.connect(sdcard_db)
-        cursor = conn.cursor()
-        
-        columns = get_table_columns(cursor, "cookies")
-        has_top_frame = 'top_frame_site_key' in columns
-        has_source_scheme = 'source_scheme' in columns
-        has_source_port = 'source_port' in columns
-        has_is_same_party = 'is_same_party' in columns
-        has_encrypted_value = 'encrypted_value' in columns
-        
-        print(f"📋 Database columns: {len(columns)} columns")
-        
-        cursor.execute("DELETE FROM cookies WHERE name = '.ROBLOSECURITY'")
-        
-        current_time = int(time.time() * 1000000)
-        
-        fields = [
-            "creation_utc",
-            "host_key", 
-            "name",
-            "value",
-            "path",
-            "expires_utc",
-            "is_secure",
-            "is_httponly",
-            "last_access_utc",
-            "has_expires",
-            "is_persistent",
-            "priority"
-        ]
-        
-        values = [
-            current_time,
-            ".roblox.com",
-            ".ROBLOSECURITY",
-            safe_cookie,
-            "/",
-            0,
-            1,
-            1,
-            current_time,
-            0,
-            1,
-            1
-        ]
-        
-        if has_encrypted_value:
-            fields.append("encrypted_value")
-            values.append("")
-        
-        if has_top_frame:
-            fields.append("top_frame_site_key")
-            values.append("")
-        
-        if has_source_scheme:
-            fields.append("source_scheme")
-            values.append(0)
-        
-        if has_source_port:
-            fields.append("source_port")
-            values.append(-1)
-        
-        if has_is_same_party:
-            fields.append("is_same_party")
-            values.append(0)
-        
-        placeholders = ','.join(['?'] * len(fields))
-        fields_str = ','.join(fields)
-        query = f"INSERT INTO cookies ({fields_str}) VALUES ({placeholders})"
-        
-        cursor.execute(query, values)
-        conn.commit()
-        
-        cursor.execute("SELECT COUNT(*) FROM cookies WHERE name = '.ROBLOSECURITY'")
-        count = cursor.fetchone()[0]
-        
-        if count == 0:
-            raise Exception("Cookie không được ghi!")
-        
-        conn.close()
-        
-        run_su(f"cp '{sdcard_db}' '{cookie_db}'")
-        fix_permissions()
-        
-        if os.path.exists(sdcard_db):
-            os.remove(sdcard_db)
-        
-        print("\n" + "="*50)
-        print("✅ ĐĂNG NHẬP THÀNH CÔNG!")
-        print("="*50)
-        
-        delete_choice = safe_input("\n🗑️ Xóa file cookie? (y/n): ").lower()
-        if delete_choice == 'y':
-            try:
-                os.remove(cookie_path)
-                print("✅ Đã xóa file cookie!")
-            except:
-                print("⚠️ Không thể xóa file cookie")
-        
-        print("\n🔄 Khởi động Roblox...")
-        start_app()
-        
-        print("\n📌 LƯU Ý:")
-        print("   - Đợi Roblox load hoàn toàn")
-        print("   - Nếu vẫn chưa đăng nhập, thử:")
-        print("     * Vào Settings > Apps > Roblox > Force Stop")
-        print("     * Mở lại Roblox")
-        print("   - Cookie có thể hết hạn hoặc không hợp lệ")
-        
-    except Exception as e:
-        print(f"❌ Lỗi: {e}")
-        if os.path.exists(backup_path):
-            print("♻️ Đang khôi phục backup...")
-            run_su(f"cp '{backup_path}' '{cookie_db}'")
-            fix_permissions()
-            print("✅ Đã khôi phục!")
-        if os.path.exists(sdcard_db):
-            os.remove(sdcard_db)
-
-def check_cookie_status():
-    global selected_package
-    
-    if not selected_package:
-        print("\n⚠️ Chưa chọn package!")
-        return
-    
-    cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
-    
-    if not run_su(f"[ -f '{cookie_db}' ] && echo OK"):
-        print("❌ Không tìm thấy database cookie!")
-        return
-    
-    sdcard_db = os.path.join(DOWNLOAD_DIR, "check_cookie.db")
-    run_su(f"cp '{cookie_db}' '{sdcard_db}'")
-    run_su(f"chmod 666 '{sdcard_db}'")
-    
-    if os.path.exists(sdcard_db):
-        try:
-            conn = sqlite3.connect(sdcard_db)
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT name, host_key, is_secure, is_httponly, 
-                       datetime(expires_utc/1000000, 'unixepoch') as expires
-                FROM cookies 
-                WHERE name = '.ROBLOSECURITY'
-            """)
-            result = cursor.fetchone()
-            conn.close()
-            os.remove(sdcard_db)
-            
-            if result:
-                print("\n📊 Cookie Status:")
-                print(f"   Name: {result[0]}")
-                print(f"   Host: {result[1]}")
-                print(f"   Secure: {result[2]}")
-                print(f"   HttpOnly: {result[3]}")
-                print(f"   Expires: {result[4] if result[4] else 'Never'}")
-                print("\n✅ Cookie đang tồn tại!")
-            else:
-                print("\n❌ Không tìm thấy cookie .ROBLOSECURITY!")
-        except:
-            os.remove(sdcard_db)
-            print("❌ Lỗi đọc cookie!")
-
-def manual_fix():
-    global selected_package
-    
-    if not selected_package:
-        print("\n⚠️ Chưa chọn package!")
-        return
-    
-    print("\n🔧 Sửa lỗi thủ công...")
-    
-    force_stop_app()
-    clear_app_cache()
-    fix_permissions()
-    
-    cookie_db = f"/data/data/{selected_package}/app_webview/Default/Cookies"
-    run_su(f"rm -f '{cookie_db}-journal'")
-    
-    print("✅ Đã sửa xong!")
-    print("🔄 Mở Roblox và kiểm tra...")
-    start_app()
-
-def main():
-    # Set terminal raw mode để xử lý input tốt hơn
-    try:
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        tty.setraw(fd)
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    except:
-        pass
-    
-    load_config()
-    
-    # Kiểm tra root
-    if not run_su("echo OK"):
-        print("\n❌ CẦN ROOT! Script này yêu cầu quyền root.")
-        print("💡 Hãy cài Magisk hoặc SuperSU.")
-        return
-    
-    # Reset terminal về chế độ bình thường
-    os.system('stty sane')
-    
-    while True:
-        try:
-            print("\n" + "="*50)
-            print("   🎮 ROBLOX COOKIE LOGIN TOOL")
-            print("="*50)
-            print(f"📦 Package: {selected_package or 'CHƯA CHỌN'}")
-            print("-"*50)
-            print("1. 🔧 Chọn package (quét Android/data)")
-            print("2. 🍪 Đăng nhập cookie")
-            print("3. 📊 Kiểm tra cookie hiện tại")
-            print("4. 🔨 Sửa lỗi thủ công")
-            print("0. 🚪 Thoát")
-            print("-"*50)
-            
-            choice = safe_input("➤ Chọn: ").strip()
-            
-            if choice == '1':
-                select_package()
-            elif choice == '2':
-                login_cookie()
-            elif choice == '3':
-                check_cookie_status()
-            elif choice == '4':
-                manual_fix()
-            elif choice == '0':
-                print("\n👋 Bye!")
-                break
-            else:
-                print("❌ Lựa chọn không hợp lệ!")
-        except KeyboardInterrupt:
-            print("\n👋 Thoát...")
-            break
-        except Exception as e:
-            print(f"⚠️ Lỗi: {e}")
-            # Reset terminal
-            os.system('stty sane')
-            time.sleep(1)
-
-if __name__ == "__main__":
-    # Reset terminal trước khi chạy
-    os.system('stty sane')
-    main()
+su -c "monkey -p com.roblox.client -c android.intent.category.LAUNCHER 1"
+EOF
