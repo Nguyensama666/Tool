@@ -1,4 +1,4 @@
-
+termux-change-repo && apt update && apt full-upgrade -y && pkg install curl wget -y
 pkg install sqlite
 #!/bin/bash
 # ============================================================
