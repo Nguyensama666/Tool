@@ -1,3 +1,5 @@
+
+pkg install sqlite
 #!/bin/bash
 # ============================================================
 # AUTO ROBLOX - DÁN COOKIE TRỰC TIẾP VÀO TERMUX
