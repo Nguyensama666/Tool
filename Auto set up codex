@@ -33,7 +33,7 @@ PLACE_ID="2753915549"
 
 # ---- COOKIE FILE ----
 # Tên file lưu cookie (mặc định: t.txt)
-COOKIE_FILE_NAME="t.txt"
+COOKIE_FILE_NAME="cookie.txt"
 
 # ---- SCRIPT FILES ----
 # Tên các script sẽ copy vào Codex/Autoexec
@@ -43,13 +43,13 @@ SCRIPT_2="3nn.txt"
 # ---- THỜI GIAN CHỜ (GIÂY) ----
 WAIT_ROBLOX_OPEN=5
 WAIT_PACKAGE_CHECK=5
-WAIT_AFTER_LOGIN=5
+WAIT_AFTER_LOGIN=2
 WAIT_RESTART=2
-WAIT_GAME_LOAD=20  # Thời gian chờ game load sau khi restart
+WAIT_GAME_LOAD=3  # Thời gian chờ game load sau khi restart
 MAX_RETRY=3        # Số lần retry tối đa
 
 # ---- LOGGING ----
-ENABLE_LOGGING="true"
+ENABLE_LOGGING="false"
 
 # ============================================================
 # KẾT THÚC PHẦN CẤU HÌNH
