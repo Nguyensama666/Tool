@@ -118,7 +118,10 @@ fi
 su -c "chmod 660 /data/data/$PACKAGE/app_webview/Default/Cookies" 2>/dev/null
 su -c "rm -f /data/data/$PACKAGE/app_webview/Default/Cookies-journal" 2>/dev/null
 
-rm -f /sdcard/Download/Cookies.db
+# ==========================================
+# GIỮ LẠI COOKIES.DB (KHÔNG XÓA)
+# ==========================================
+echo -e "${YELLOW}💾 Giữ lại Cookies.db trong /sdcard/Download/ để dùng sau${NC}"
 
 echo -e "${GREEN}=========================================="
 echo "✅ ĐĂNG NHẬP THÀNH CÔNG!"
