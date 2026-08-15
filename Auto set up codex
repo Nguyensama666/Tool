@@ -49,10 +49,20 @@ check_cookies_db() {
 run_tool1() {
     log "🔄 Đang chạy Tool 1..."
     echo "🔄 Đang tải file cần thiết (có thể mất vài phút)..."
-    yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3 &
-    wait
-    log "✅ Tool 1 đã chạy xong!"
-    echo "✅ Tool 1 đã chạy xong!"
+    
+    # Tải script về và chạy trực tiếp (không dùng &)
+    curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
+    
+    # Kiểm tra kết quả
+    if [ $? -eq 0 ]; then
+        log "✅ Tool 1 đã chạy xong!"
+        echo "✅ Tool 1 đã chạy xong!"
+        return 0
+    else
+        log "❌ Tool 1 chạy thất bại!"
+        echo "❌ Tool 1 chạy thất bại!"
+        return 1
+    fi
 }
 
 # ============================================================
