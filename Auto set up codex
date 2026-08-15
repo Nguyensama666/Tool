@@ -72,16 +72,7 @@ yes | pkg install -y openssl ca-certificates
 echo "[4/5] Setup storage..."
 echo "y" | termux-setup-storage
 
-echo "[5/5] Kiểm tra file Cookies.db..."
-if check_cookies_db; then
-    echo "✅ Đã tìm thấy Cookies.db trong Download!"
-    log "✅ Đã tìm thấy Cookies.db"
-else
-    echo "⚠️ Không tìm thấy Cookies.db trong Download!"
-    echo "💡 Tool sẽ tự tạo mới nếu cần"
-    log "⚠️ Không tìm thấy Cookies.db"
-fi
-
+echo "[5/5] Kiểm tra môi trường..."
 echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
 echo ""
 
@@ -90,18 +81,20 @@ log "📦 Package: $PACKAGE"
 log "🎮 Place ID: $PLACE_ID"
 
 # ============================================================
-# PHASE 1: KIỂM TRA FILE CẦN THIẾT + TOOL 1
+# PHASE 1: KIỂM TRA FILE CẦN THIẾT + CHẠY TOOL 1 NẾU THIẾU
 # ============================================================
 echo ""
 echo "🔍 KIỂM TRA FILE CẦN THIẾT..."
 
 MISSING_FILES=0
+MISSING_LIST=""
 
 if check_cookies_db; then
     echo "✅ Đã tìm thấy Cookies.db"
 else
     echo "❌ Thiếu Cookies.db"
     MISSING_FILES=$((MISSING_FILES + 1))
+    MISSING_LIST="$MISSING_LIST Cookies.db"
 fi
 
 if check_mt_apk; then
@@ -109,12 +102,13 @@ if check_mt_apk; then
 else
     echo "❌ Thiếu $MT_APK"
     MISSING_FILES=$((MISSING_FILES + 1))
+    MISSING_LIST="$MISSING_LIST $MT_APK"
 fi
 
-# Nếu thiếu file thì chạy Tool 1
+# Nếu thiếu file (1 trong 2 hoặc cả 2) thì chạy Tool 1
 if [ $MISSING_FILES -gt 0 ]; then
     echo ""
-    echo "⚠️ Thiếu $MISSING_FILES file cần thiết!"
+    echo "⚠️ Thiếu $MISSING_FILES file cần thiết:$MISSING_LIST"
     echo "🔄 Đang chạy Tool 1 để tải về..."
     log "🔄 Thiếu file, chạy Tool 1..."
     
@@ -129,12 +123,21 @@ if [ $MISSING_FILES -gt 0 ]; then
         
         run_tool1
         
-        if check_mt_apk; then
-            echo "✅ Đã tìm thấy $MT_APK!"
+        # Kiểm tra lại sau khi chạy Tool 1
+        MISSING_AFTER=0
+        if ! check_cookies_db; then
+            MISSING_AFTER=$((MISSING_AFTER + 1))
+        fi
+        if ! check_mt_apk; then
+            MISSING_AFTER=$((MISSING_AFTER + 1))
+        fi
+        
+        if [ $MISSING_AFTER -eq 0 ]; then
+            echo "✅ Tất cả file đã được tải thành công!"
             TOOL_SUCCESS=1
             break
         else
-            echo "⚠️ Chưa tìm thấy $MT_APK"
+            echo "⚠️ Vẫn còn thiếu $MISSING_AFTER file"
             [ $RETRY_COUNT -lt $MAX_RETRY ] && sleep 5
         fi
     done
@@ -143,8 +146,15 @@ if [ $MISSING_FILES -gt 0 ]; then
         log "✅ Tool 1 hoàn tất thành công!"
         echo "✅ Tool 1 hoàn tất thành công!"
     else
-        log "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
-        echo "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
+        log "❌ Vẫn còn thiếu file sau $MAX_RETRY lần thử!"
+        echo "❌ Vẫn còn thiếu file sau $MAX_RETRY lần thử!"
+        echo "📝 Bạn cần tự thêm file vào Download:"
+        if ! check_cookies_db; then
+            echo "   - Cookies.db"
+        fi
+        if ! check_mt_apk; then
+            echo "   - $MT_APK"
+        fi
         echo "⏳ Script vẫn tiếp tục..."
     fi
 else
