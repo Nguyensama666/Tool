@@ -1,36 +1,59 @@
 pkg install python
 pkg install sqlite
+
 cat > ~/check_cookie_new.py << 'EOF'
 #!/data/data/com.termux/files/usr/bin/python3
 import requests
 import sys
 import json
+import re
+
+# HÀM TRÍCH XUẤT COOKIE TỪ user:pass:cookie
+def extract_cookie(line):
+    line = line.strip()
+    # Định dạng user:pass:cookie
+    if ':' in line:
+        parts = line.split(':', 2)  # Tách tối đa 2 lần
+        if len(parts) == 3:
+            # Kiểm tra phần thứ 3 có phải cookie không
+            if parts[2].startswith('_|WARNING') or len(parts[2]) > 100:
+                return parts[2]
+    # Cookie thuần
+    if line.startswith('_|WARNING') or len(line) > 100:
+        return line
+    return None
 
 # Đọc cookie
 try:
     with open("/sdcard/Download/cookie.txt", 'r') as f:
-        cookie = f.read().strip()
+        raw = f.read().strip()
 except:
     print("❌ Không tìm thấy cookie.txt!")
     sys.exit(1)
 
-if not cookie or len(cookie) < 50:
+# Trích xuất cookie
+cookie = extract_cookie(raw)
+if not cookie:
     print("❌ Cookie không hợp lệ!")
     sys.exit(1)
 
+if len(cookie) < 50:
+    print("❌ Cookie quá ngắn!")
+    sys.exit(1)
+
 print(f"🔍 Đang kiểm tra cookie...")
+print(f"   Cookie: {cookie[:30]}... ({len(cookie)} chars)")
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Cookie': f'.ROBLOSECURITY={cookie}'
 }
 
-# API mới của Roblox
+# API của Roblox
 apis = [
     'https://users.roblox.com/v1/users/authenticated',
     'https://www.roblox.com/mobileapi/userinfo',
     'https://economy.roblox.com/v1/user/currency',
-    'https://notifications.roblox.com/v2/notifications/unread-count'
 ]
 
 for api in apis:
@@ -64,8 +87,9 @@ for api in apis:
     except Exception as e:
         pass
 
-print("\n❌ Không thể xác minh cookie (có thể API đã thay đổi)")
-print("💡 Cookie vẫn có thể dùng để login")
+print("\n❌ Không thể xác minh cookie")
+print("💡 Cookie có thể đã hết hạn hoặc bị khóa")
+sys.exit(1)
 EOF
 
 cat > ~/roblox_login.sh << 'EOF'
@@ -73,7 +97,7 @@ cat > ~/roblox_login.sh << 'EOF'
 
 # ==========================================
 #   ROBLOX COOKIE LOGIN TOOL v3.0
-#   Tự động đọc cookie từ file, check bằng Python
+#   Hỗ trợ: cookie thuần, user:pass:cookie
 # ==========================================
 
 VERSION="3.0"
@@ -88,15 +112,43 @@ echo "   ROBLOX COOKIE LOGIN TOOL v$VERSION"
 echo -e "==========================================${NC}"
 
 # ==========================================
+# HÀM TRÍCH XUẤT COOKIE
+# ==========================================
+extract_cookie() {
+    local line="$1"
+    # Định dạng user:pass:cookie
+    if [[ "$line" =~ ^[^:]+:[^:]+:(.+)$ ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    # Cookie thuần
+    if [[ "$line" =~ ^_\|WARNING ]]; then
+        echo "$line"
+        return 0
+    fi
+    # Cookie dài > 100 ký tự
+    if [[ ${#line} -gt 100 ]]; then
+        echo "$line"
+        return 0
+    fi
+    return 1
+}
+
+# ==========================================
 # KIỂM TRA FILE COOKIE.TXT
 # ==========================================
 if [ ! -f "/sdcard/Download/cookie.txt" ]; then
     echo -e "${RED}❌ Không tìm thấy /sdcard/Download/cookie.txt!${NC}"
     echo -e "${YELLOW}💡 Hãy tạo file /sdcard/Download/cookie.txt và dán cookie vào${NC}"
+    echo "   echo '_|WARNING...' > /sdcard/Download/cookie.txt"
+    echo "   hoặc: echo 'user:pass:_|WARNING...' > /sdcard/Download/cookie.txt"
     exit 1
 fi
 
-COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
+# Đọc và trích xuất cookie
+RAW_COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
+COOKIE=$(extract_cookie "$RAW_COOKIE")
+
 if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
     echo -e "${RED}❌ Cookie trong file không hợp lệ (quá ngắn)!${NC}"
     echo -e "${YELLOW}💡 Cookie phải dài > 100 ký tự và bắt đầu bằng _|WARNING${NC}"
@@ -107,7 +159,7 @@ echo -e "${GREEN}✅ Đọc cookie từ /sdcard/Download/cookie.txt${NC}"
 echo -e "${YELLOW}💡 Cookie: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
 
 # ==========================================
-# CHECK COOKIE BẰNG PYTHON
+# CHECK COOKIE BẰNG PYTHON (đã hỗ trợ user:pass:cookie)
 # ==========================================
 echo ""
 echo -e "${YELLOW}🔍 ĐANG KIỂM TRA COOKIE...${NC}"
