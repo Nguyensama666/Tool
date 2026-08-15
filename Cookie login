@@ -1,6 +1,6 @@
 pkg install sqlite
 
-cat > ~/roblox_ck.sh << 'EOF'
+cat > ~/roblox_login.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ==========================================
@@ -129,5 +129,5 @@ echo -e "${BLUE}   1. Vào Settings > Apps > Roblox > Force Stop${NC}"
 echo -e "${BLUE}   2. Mở lại Roblox${NC}"
 EOF
 
-chmod +x ~/roblox_ck.sh
-./roblox_ck.sh
+chmod +x ~/roblox_login.sh
+./roblox_login.sh
