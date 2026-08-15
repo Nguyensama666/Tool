@@ -1,12 +1,13 @@
+pkg install sqlite
+
 cat > ~/roblox_login.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ==========================================
-#   ROBLOX COOKIE LOGIN TOOL v3.1
+#   ROBLOX COOKIE INJECTOR
 #   Hỗ trợ: cookie thuần, user:pass:cookie
 # ==========================================
 
-VERSION="3.1"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -14,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}=========================================="
-echo "   ROBLOX COOKIE LOGIN TOOL v$VERSION"
+echo "   ROBLOX COOKIE INJECTOR"
 echo -e "==========================================${NC}"
 
 # ==========================================
@@ -22,17 +23,14 @@ echo -e "==========================================${NC}"
 # ==========================================
 extract_cookie() {
     local line="$1"
-    # Định dạng user:pass:cookie
     if [[ "$line" =~ ^[^:]+:[^:]+:(.+)$ ]]; then
         echo "${BASH_REMATCH[1]}"
         return 0
     fi
-    # Cookie thuần
     if [[ "$line" =~ ^_\|WARNING ]]; then
         echo "$line"
         return 0
     fi
-    # Cookie dài > 100 ký tự
     if [[ ${#line} -gt 100 ]]; then
         echo "$line"
         return 0
@@ -56,29 +54,12 @@ RAW_COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
 COOKIE=$(extract_cookie "$RAW_COOKIE")
 
 if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
-    echo -e "${RED}❌ Cookie trong file không hợp lệ (quá ngắn)!${NC}"
-    echo -e "${YELLOW}💡 Cookie phải dài > 100 ký tự và bắt đầu bằng _|WARNING${NC}"
+    echo -e "${RED}❌ Cookie không hợp lệ (quá ngắn)!${NC}"
+    echo -e "${YELLOW}💡 Cookie phải dài > 100 ký tự${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Đọc cookie từ /sdcard/Download/cookie.txt${NC}"
-echo -e "${YELLOW}💡 Cookie: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
-
-# ==========================================
-# CHECK COOKIE BẰNG PYTHON
-# ==========================================
-echo ""
-echo -e "${YELLOW}🔍 ĐANG KIỂM TRA COOKIE...${NC}"
-
-python3 ~/check_cookie_new.py
-if [ $? -ne 0 ]; then
-    echo ""
-    echo -e "${RED}❌ Cookie không hợp lệ. Thoát.${NC}"
-    exit 1
-fi
-
-echo ""
-echo -e "${GREEN}✅ COOKIE HỢP LỆ! TIẾP TỤC...${NC}"
+echo -e "${GREEN}✅ Cookie: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
 
 # ==========================================
 # INJECT COOKIE
@@ -93,18 +74,17 @@ sleep 2
 echo "📁 Tạo thư mục..."
 su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
 
-if [ ! -f "/sdcard/Download/cklogin/Cookies.db" ] && [ ! -f "/sdcard/Download/Cookies.db" ]; then
-    echo -e "${RED}❌ Không tìm thấy file mẫu Cookies.db!${NC}"
-    echo "💡 Đặt file Cookies.db vào /sdcard/Download/cklogin/ hoặc /sdcard/Download/"
-    exit 1
-fi
-
+# Tìm file mẫu Cookies.db
 if [ -f "/sdcard/Download/cklogin/Cookies.db" ]; then
     cp /sdcard/Download/cklogin/Cookies.db /sdcard/Download/Cookies.db
-else
+elif [ -f "/sdcard/Download/Cookies.db" ]; then
     cp /sdcard/Download/Cookies.db /sdcard/Download/Cookies.db.tmp
     mv /sdcard/Download/Cookies.db.tmp /sdcard/Download/Cookies.db
+else
+    # Tạo file mới nếu ko có mẫu
+    sqlite3 /sdcard/Download/Cookies.db "CREATE TABLE cookies (creation_utc INTEGER, host_key TEXT, name TEXT, value TEXT, path TEXT, expires_utc INTEGER, is_secure INTEGER, is_httponly INTEGER, last_access_utc INTEGER, has_expires INTEGER, is_persistent INTEGER, priority INTEGER, encrypted_value TEXT, samesite INTEGER, source_scheme INTEGER, source_port INTEGER, is_same_party INTEGER);"
 fi
+
 chmod 666 /sdcard/Download/Cookies.db 2>/dev/null
 
 ESCAPED=$(echo "$COOKIE" | sed "s/'/''/g")
