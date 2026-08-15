@@ -1,4 +1,4 @@
-cat > ~/tool_style.sh << 'EOF'
+
 #!/data/data/com.termux/files/usr/bin/bash
 
 echo "=========================================="
@@ -117,4 +117,3 @@ echo "   User: $USERNAME"
 echo "=========================================="
 
 su -c "monkey -p com.roblox.client -c android.intent.category.LAUNCHER 1"
-EOF
