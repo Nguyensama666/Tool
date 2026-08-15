@@ -1,6 +1,3 @@
-pkg install sqlite
-
-cat > ~/roblox_login.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ==========================================
@@ -127,7 +124,3 @@ echo -e "${BLUE}📌 Đợi 10-15 giây để Roblox load${NC}"
 echo -e "${BLUE}   Nếu vẫn ở màn hình đăng nhập:${NC}"
 echo -e "${BLUE}   1. Vào Settings > Apps > Roblox > Force Stop${NC}"
 echo -e "${BLUE}   2. Mở lại Roblox${NC}"
-EOF
-
-chmod +x ~/roblox_login.sh
-./roblox_login.sh
