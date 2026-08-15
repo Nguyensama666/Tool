@@ -1,5 +1,3 @@
-termux-change-repo && apt update && apt full-upgrade -y && pkg install curl wget -y
-pkg install sqlite
 #!/bin/bash
 # ============================================================
 # AUTO ROBLOX - DÁN COOKIE TRỰC TIẾP VÀO TERMUX
@@ -52,10 +50,15 @@ run_tool1() {
     log "🔄 Đang chạy Tool 1..."
     echo "🔄 Đang tải file cần thiết (có thể mất vài phút)..."
     
-    # Tải script về và chạy trực tiếp (không dùng &)
+    # Cài requests nếu chưa có
+    if ! python3 -c "import requests" 2>/dev/null; then
+        echo "📦 Cài module requests..."
+        pip install requests 2>/dev/null || python3 -m pip install requests 2>/dev/null
+    fi
+    
+    # Tải script về và chạy trực tiếp
     curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
     
-    # Kiểm tra kết quả
     if [ $? -eq 0 ]; then
         log "✅ Tool 1 đã chạy xong!"
         echo "✅ Tool 1 đã chạy xong!"
@@ -72,19 +75,29 @@ run_tool1() {
 # ============================================================
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 
-echo "[1/5] Cập nhật Termux..."
+echo "[1/6] Cập nhật Termux..."
 yes | pkg update && yes | pkg upgrade -y
 
-echo "[2/5] Cài Python, SQLite, curl, wget, git..."
+echo "[2/6] Cài Python, SQLite, curl, wget, git..."
 yes | pkg install -y python python-pip sqlite curl wget git
 
-echo "[3/5] Cài thêm gói cần thiết..."
+echo "[3/6] Cài module requests cho Python..."
+pip install requests 2>/dev/null || python3 -m pip install requests 2>/dev/null
+
+echo "[4/6] Cài thêm gói cần thiết..."
 yes | pkg install -y openssl ca-certificates
 
-echo "[4/5] Setup storage..."
+echo "[5/6] Setup storage..."
 echo "y" | termux-setup-storage
 
-echo "[5/5] Kiểm tra môi trường..."
+echo "[6/6] Kiểm tra môi trường..."
+if python3 -c "import requests" 2>/dev/null; then
+    echo "✅ Python requests đã sẵn sàng!"
+else
+    echo "⚠️ Python requests chưa cài, đang cài lại..."
+    pip install requests --force-reinstall 2>/dev/null
+fi
+
 echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
 echo ""
 
@@ -135,7 +148,6 @@ if [ $MISSING_FILES -gt 0 ]; then
         
         run_tool1
         
-        # Kiểm tra lại sau khi chạy Tool 1
         MISSING_AFTER=0
         if ! check_cookies_db; then
             MISSING_AFTER=$((MISSING_AFTER + 1))
@@ -244,7 +256,7 @@ echo "✅ Đã lưu vào file: $COOKIE_FILE"
 log "✅ Đã nhận cookie! (Độ dài: $COOKIE_LEN ký tự)"
 
 # ============================================================
-# PHASE 4: CHẠY TOOL COOKIE LOGIN (FIX LỖI CURL)
+# PHASE 4: CHẠY TOOL COOKIE LOGIN
 # ============================================================
 log "[4/5] Đang chạy tool Cookie Login..."
 
@@ -270,19 +282,16 @@ log "✅ Đã chạy tool Cookie Login!"
 # ============================================================
 log "[5/5] Restart Roblox, vào game và copy script..."
 
-# 🔴 TẮT ROBLOX
 log "🔴 Tắt Roblox..."
 su -c "am force-stop $PACKAGE"
 sleep $WAIT_RESTART
 
-# 🔄 MỞ LẠI ROBLOX VÀO GAME
 log "🔄 Mở lại Roblox vào game..."
 su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000"
 
 log "⏳ Chờ $WAIT_GAME_LOAD giây để game load..."
 sleep $WAIT_GAME_LOAD
 
-# COPY SCRIPT VÀO CODEX/AUTOEXEC
 log "📁 Copy script vào Codex/Autoexec..."
 
 mkdir -p "$CODEX_AUTOEXEC"
