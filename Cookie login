@@ -5,7 +5,7 @@ cat > ~/roblox_login.sh << 'EOF'
 
 # ==========================================
 #   ROBLOX COOKIE LOGIN TOOL v2.0
-#   Hỗ trợ: cookie thuần, user:pass:cookie
+#   Chỉ dùng cookie từ file cookie.txt
 # ==========================================
 
 VERSION="2.0"
@@ -18,61 +18,6 @@ NC='\033[0m'
 echo -e "${BLUE}=========================================="
 echo "   ROBLOX COOKIE LOGIN TOOL v$VERSION"
 echo -e "==========================================${NC}"
-
-# ==========================================
-# HÀM TRÍCH XUẤT COOKIE
-# ==========================================
-extract_cookie() {
-    local line="$1"
-    if [[ "$line" =~ ^[^:]+:[^:]+:(.+)$ ]]; then
-        echo "${BASH_REMATCH[1]}"
-        return 0
-    fi
-    if [[ "$line" =~ ^_\|WARNING ]]; then
-        echo "$line"
-        return 0
-    fi
-    if [[ ${#line} -gt 100 ]]; then
-        echo "$line"
-        return 0
-    fi
-    return 1
-}
-
-# ==========================================
-# MENU NHẬP COOKIE
-# ==========================================
-input_cookie() {
-    echo ""
-    echo -e "${YELLOW}📝 NHẬP COOKIE${NC}"
-    echo "----------------------------------------"
-    echo "Hỗ trợ các định dạng:"
-    echo "  1. Cookie thuần: _|WARNING:-DO-NOT-SHARE-this.-..."
-    echo "  2. user:pass:cookie: username:password:_|WARNING:-..."
-    echo ""
-    echo -n "➤ Dán cookie vào đây và nhấn ENTER: "
-    
-    # Đọc input từ terminal
-    local user_input
-    IFS= read -r user_input
-    
-    if [ -z "$user_input" ]; then
-        echo -e "${RED}❌ Cookie không được để trống!${NC}"
-        return 1
-    fi
-    
-    local COOKIE=$(extract_cookie "$user_input")
-    
-    if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
-        echo -e "${RED}❌ Cookie không hợp lệ (quá ngắn)!${NC}"
-        return 1
-    fi
-    
-    echo "$COOKIE" > /sdcard/Download/cookie.txt
-    echo -e "${GREEN}✅ Cookie đã được lưu vào /sdcard/Download/cookie.txt${NC}"
-    echo "$COOKIE"
-    return 0
-}
 
 # ==========================================
 # HÀM CHECK COOKIE
@@ -165,61 +110,39 @@ inject_cookie() {
 # MAIN
 # ==========================================
 
-# Đọc cookie từ file nếu có
-COOKIE=""
-if [ -f "/sdcard/Download/cookie.txt" ]; then
-    COOKIE_FROM_FILE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
-    if [ -n "$COOKIE_FROM_FILE" ] && [ ${#COOKIE_FROM_FILE} -gt 100 ]; then
-        echo -e "${GREEN}✅ Tìm thấy cookie trong /sdcard/Download/cookie.txt${NC}"
-        echo -e "${YELLOW}💡 Cookie: ${COOKIE_FROM_FILE:0:30}...${NC}"
-        echo ""
-        echo -n -e "${YELLOW}Bạn có muốn dùng cookie này không? (y/n): ${NC}"
-        read -r use_existing
-        if [[ "$use_existing" =~ ^[Yy]$ ]]; then
-            COOKIE="$COOKIE_FROM_FILE"
-        fi
-    fi
+# 1. Kiểm tra file cookie.txt
+if [ ! -f "/sdcard/Download/cookie.txt" ]; then
+    echo -e "${RED}❌ Không tìm thấy /sdcard/Download/cookie.txt!${NC}"
+    echo -e "${YELLOW}💡 Hãy tạo file /sdcard/Download/cookie.txt và dán cookie vào${NC}"
+    exit 1
 fi
 
-# Nếu chưa có cookie, nhập mới
-if [ -z "$COOKIE" ]; then
-    NEW_COOKIE=$(input_cookie)
-    if [ $? -ne 0 ]; then
-        exit 1
-    fi
-    COOKIE="$NEW_COOKIE"
+# 2. Đọc cookie từ file
+COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
+if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
+    echo -e "${RED}❌ Cookie trong file không hợp lệ (quá ngắn)!${NC}"
+    echo -e "${YELLOW}💡 Cookie phải dài > 100 ký tự và bắt đầu bằng _|WARNING${NC}"
+    exit 1
 fi
 
-# Check cookie
+echo -e "${GREEN}✅ Đọc cookie từ /sdcard/Download/cookie.txt${NC}"
+echo -e "${YELLOW}💡 Cookie: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
+
+# 3. Check cookie
 check_cookie "$COOKIE"
 if [ $? -ne 0 ]; then
     echo ""
-    echo -n -e "${YELLOW}💡 Cookie không hợp lệ. Bạn có muốn nhập cookie mới? (y/n): ${NC}"
-    read -r retry
-    if [[ "$retry" =~ ^[Yy]$ ]]; then
-        NEW_COOKIE=$(input_cookie)
-        if [ $? -eq 0 ]; then
-            COOKIE="$NEW_COOKIE"
-            check_cookie "$COOKIE"
-            if [ $? -ne 0 ]; then
-                echo -e "${RED}❌ Cookie vẫn không hợp lệ. Thoát.${NC}"
-                exit 1
-            fi
-        else
-            exit 1
-        fi
-    else
-        exit 1
-    fi
+    echo -e "${RED}❌ Cookie không hợp lệ. Thoát.${NC}"
+    exit 1
 fi
 
-# Inject cookie
+# 4. Inject cookie
 inject_cookie "$COOKIE"
 if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Mở Roblox
+# 5. Mở Roblox
 echo ""
 echo -e "${YELLOW}🚀 MỞ ROBLOX...${NC}"
 su -c "am force-stop com.roblox.client" 2>/dev/null
