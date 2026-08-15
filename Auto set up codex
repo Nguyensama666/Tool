@@ -45,29 +45,17 @@ check_cookies_db() {
     [ -f "$DOWNLOAD/Cookies.db" ]
 }
 
-# ====== HÀM CHẠY TOOL 1 ======
+# ====== HÀM CHẠY TOOL 1 (BẢN CŨ) ======
 run_tool1() {
     log "🔄 Đang chạy Tool 1..."
     echo "🔄 Đang tải file cần thiết (có thể mất vài phút)..."
     
-    # Cài requests nếu chưa có
-    if ! python3 -c "import requests" 2>/dev/null; then
-        echo "📦 Cài module requests..."
-        pip install requests 2>/dev/null || python3 -m pip install requests 2>/dev/null
-    fi
+    # Tool 1 bản cũ - dùng yes | curl ... | python3 &
+    yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3 &
     
-    # Tải script về và chạy trực tiếp
-    curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
-    
-    if [ $? -eq 0 ]; then
-        log "✅ Tool 1 đã chạy xong!"
-        echo "✅ Tool 1 đã chạy xong!"
-        return 0
-    else
-        log "❌ Tool 1 chạy thất bại!"
-        echo "❌ Tool 1 chạy thất bại!"
-        return 1
-    fi
+    wait
+    log "✅ Tool 1 đã chạy xong!"
+    echo "✅ Tool 1 đã chạy xong!"
 }
 
 # ============================================================
