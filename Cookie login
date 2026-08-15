@@ -114,10 +114,6 @@ inject_cookie() {
     su -c "am force-stop com.roblox.client" 2>/dev/null
     sleep 2
     
-    echo "🧹 Clear cache..."
-    su -c "pm clear --cache-only com.roblox.client" 2>/dev/null
-    sleep 1
-    
     echo "📁 Tạo thư mục..."
     su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
     
