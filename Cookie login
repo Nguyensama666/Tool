@@ -22,17 +22,14 @@ echo -e "==========================================${NC}"
 # ==========================================
 extract_cookie() {
     local line="$1"
-    # Định dạng user:pass:cookie
     if [[ "$line" =~ ^[^:]+:[^:]+:(.+)$ ]]; then
         echo "${BASH_REMATCH[1]}"
         return 0
     fi
-    # Cookie thuần
     if [[ "$line" =~ ^_\|WARNING ]]; then
         echo "$line"
         return 0
     fi
-    # Cookie dài > 100 ký tự
     if [[ ${#line} -gt 100 ]]; then
         echo "$line"
         return 0
@@ -59,7 +56,6 @@ input_cookie() {
         return 1
     fi
     
-    # Trích xuất cookie
     COOKIE=$(extract_cookie "$user_input")
     
     if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
@@ -67,7 +63,6 @@ input_cookie() {
         return 1
     fi
     
-    # Lưu vào file
     echo "$COOKIE" > /sdcard/Download/cookie.txt
     echo -e "${GREEN}✅ Cookie đã được lưu vào /sdcard/Download/cookie.txt${NC}"
     return 0
@@ -111,28 +106,23 @@ inject_cookie() {
     echo ""
     echo -e "${YELLOW}📋 BẮT ĐẦU INJECT COOKIE...${NC}"
     
-    # Force stop
     echo "⏹ Force stop Roblox..."
     su -c "am force-stop com.roblox.client" 2>/dev/null
     sleep 2
     
-    # Clear cache
     echo "🧹 Clear cache..."
     su -c "pm clear --cache-only com.roblox.client" 2>/dev/null
     sleep 1
     
-    # Tạo thư mục
     echo "📁 Tạo thư mục..."
     su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
     
-    # Kiểm tra file mẫu
     if [ ! -f "/sdcard/Download/cklogin/Cookies.db" ] && [ ! -f "/sdcard/Download/Cookies.db" ]; then
         echo -e "${RED}❌ Không tìm thấy file mẫu Cookies.db!${NC}"
         echo "💡 Đặt file Cookies.db vào /sdcard/Download/cklogin/ hoặc /sdcard/Download/"
         return 1
     fi
     
-    # Copy file mẫu
     if [ -f "/sdcard/Download/cklogin/Cookies.db" ]; then
         cp /sdcard/Download/cklogin/Cookies.db /sdcard/Download/Cookies.db
     else
@@ -141,16 +131,12 @@ inject_cookie() {
     fi
     chmod 666 /sdcard/Download/Cookies.db 2>/dev/null
     
-    # Escape cookie
     ESCAPED=$(echo "$cookie" | sed "s/'/''/g")
     
-    # Xóa cookie cũ
     sqlite3 /sdcard/Download/Cookies.db "DELETE FROM cookies WHERE name='.ROBLOSECURITY';" 2>/dev/null
     
-    # Insert cookie mới
     sqlite3 /sdcard/Download/Cookies.db "INSERT INTO cookies (creation_utc, host_key, name, value, path, expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, encrypted_value, samesite, source_scheme, source_port, is_same_party) VALUES (strftime('%s','now')*1000000, '.roblox.com', '.ROBLOSECURITY', '${ESCAPED}', '/', 0, 1, 1, strftime('%s','now')*1000000, 1, 1, 1, '', -1, 0, -1, 0);" 2>/dev/null
     
-    # Kiểm tra
     COUNT=$(sqlite3 /sdcard/Download/Cookies.db "SELECT COUNT(*) FROM cookies WHERE name='.ROBLOSECURITY';" 2>/dev/null)
     if [ "$COUNT" = "0" ]; then
         echo -e "${RED}❌ Cookie không được ghi!${NC}"
@@ -159,16 +145,13 @@ inject_cookie() {
     fi
     echo -e "${GREEN}✅ Đã ghi $COUNT records${NC}"
     
-    # Copy vào app_webview
     echo "📋 Copy vào Roblox..."
     su -c "cp /sdcard/Download/Cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
     
-    # Set permission
     su -c "chown 10105:10105 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
     su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
     su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
     
-    # Xóa file tạm
     rm -f /sdcard/Download/Cookies.db
     
     echo -e "${GREEN}=========================================="
@@ -181,7 +164,6 @@ inject_cookie() {
 # MAIN
 # ==========================================
 
-# 1. Kiểm tra file cookie.txt
 COOKIE=""
 if [ -f "/sdcard/Download/cookie.txt" ]; then
     COOKIE_FROM_FILE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
@@ -198,7 +180,6 @@ if [ -f "/sdcard/Download/cookie.txt" ]; then
     fi
 fi
 
-# 2. Nếu chưa có cookie, hỏi nhập
 if [ -z "$COOKIE" ]; then
     input_cookie
     if [ $? -ne 0 ]; then
@@ -207,7 +188,6 @@ if [ -z "$COOKIE" ]; then
     COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
 fi
 
-# 3. Check cookie
 check_cookie "$COOKIE"
 if [ $? -ne 0 ]; then
     echo ""
@@ -231,13 +211,11 @@ if [ $? -ne 0 ]; then
     fi
 fi
 
-# 4. Inject cookie
 inject_cookie "$COOKIE"
 if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 5. Mở Roblox
 echo ""
 echo -e "${YELLOW}🚀 MỞ ROBLOX...${NC}"
 su -c "am force-stop com.roblox.client" 2>/dev/null
@@ -252,3 +230,4 @@ echo -e "${BLUE}   2. Mở lại Roblox${NC}"
 EOF
 
 chmod +x ~/roblox_login.sh
+./roblox_login.sh
