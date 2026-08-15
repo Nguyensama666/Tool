@@ -198,7 +198,7 @@ echo "✅ Đã lưu vào file: $COOKIE_FILE"
 log "✅ Đã nhận cookie! (Độ dài: $COOKIE_LEN ký tự)"
 
 # ============================================================
-# PHASE 4: CHẠY TOOL COOKIE LOGIN (THAY THẾ PHẦN LOGIN CŨ)
+# PHASE 4: CHẠY TOOL COOKIE LOGIN (FIX LỖI CURL)
 # ============================================================
 log "[4/5] Đang chạy tool Cookie Login..."
 
@@ -208,10 +208,22 @@ echo "    🔐 ĐANG CHẠY TOOL COOKIE LOGIN"
 echo "═══════════════════════════════════════════════"
 echo ""
 
-bash <(curl -s https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
+# Kiểm tra curl có hoạt động không
+if command -v curl &> /dev/null; then
+    # Thử curl với timeout ngắn
+    if curl -s --max-time 5 https://google.com &> /dev/null; then
+        echo "✅ Dùng curl..."
+        bash <(curl -s https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
+    else
+        echo "⚠️ Curl lỗi, chuyển sang wget..."
+        bash <(wget -qO- https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
+    fi
+else
+    echo "⚠️ Không có curl, dùng wget..."
+    bash <(wget -qO- https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
+fi
 
 log "✅ Đã chạy tool Cookie Login!"
-
 # ============================================================
 # PHASE 5: RESTART ROBLOX + VÀO GAME + COPY SCRIPT
 # ============================================================
