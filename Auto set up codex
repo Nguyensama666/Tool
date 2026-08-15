@@ -9,34 +9,19 @@ echo "════════════════════════�
 echo ""
 
 # ============================================================
-# 🛠️ PHẦN CẤU HÌNH (BẠN CÓ THỂ TÙY CHỈNH)
+# 🛠️ PHẦN CẤU HÌNH
 # ============================================================
 
-# ---- PACKAGE ROBLOX ----
 PACKAGE="com.roblox.client"
-
-# ---- PLACE ID (ID GAME) ----
 PLACE_ID="2753915549"
-
-# ---- COOKIE FILE ----
 COOKIE_FILE_NAME="cookie.txt"
-
-# ---- SCRIPT FILES ----
 SCRIPT_1="yumy.txt"
 SCRIPT_2="3nn.txt"
-
-# ---- THỜI GIAN CHỜ (GIÂY) ----
 WAIT_PACKAGE_CHECK=5
 WAIT_RESTART=2
 WAIT_GAME_LOAD=3
 MAX_RETRY=3
-
-# ---- LOGGING ----
 ENABLE_LOGGING="false"
-
-# ============================================================
-# KẾT THÚC PHẦN CẤU HÌNH
-# ============================================================
 
 DOWNLOAD="/sdcard/Download"
 COOKIE_FILE="$DOWNLOAD/$COOKIE_FILE_NAME"
@@ -51,37 +36,49 @@ log() {
     fi
 }
 
-# ====== HÀM KIỂM TRA FILE MT_2.26.2.apk ======
+# ====== HÀM KIỂM TRA FILE ======
 check_mt_apk() {
     [ -f "$DOWNLOAD/$MT_APK" ]
+}
+
+check_cookies_db() {
+    [ -f "$DOWNLOAD/Cookies.db" ]
 }
 
 # ====== HÀM CHẠY TOOL 1 ======
 run_tool1() {
     log "🔄 Đang chạy Tool 1..."
+    echo "🔄 Đang tải file cần thiết (có thể mất vài phút)..."
     yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3 &
     wait
     log "✅ Tool 1 đã chạy xong!"
+    echo "✅ Tool 1 đã chạy xong!"
 }
 
 # ============================================================
-# CÀI ĐẶT MÔI TRƯỜNG (TỐI GIẢN)
+# CÀI ĐẶT MÔI TRƯỜNG (ĐẦY ĐỦ)
 # ============================================================
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 
-echo "[1/3] Cài Python, SQLite, curl..."
-yes | pkg install -y python sqlite curl wget git
+echo "[1/5] Cập nhật Termux..."
+yes | pkg update && yes | pkg upgrade -y
 
-echo "[2/3] Setup storage..."
+echo "[2/5] Cài Python, SQLite, curl, wget, git..."
+yes | pkg install -y python python-pip sqlite curl wget git
+
+echo "[3/5] Cài thêm gói cần thiết..."
+yes | pkg install -y openssl ca-certificates
+
+echo "[4/5] Setup storage..."
 echo "y" | termux-setup-storage
 
-echo "[3/3] Kiểm tra file Cookies.db..."
-if [ -f "$DOWNLOAD/Cookies.db" ]; then
+echo "[5/5] Kiểm tra file Cookies.db..."
+if check_cookies_db; then
     echo "✅ Đã tìm thấy Cookies.db trong Download!"
     log "✅ Đã tìm thấy Cookies.db"
 else
     echo "⚠️ Không tìm thấy Cookies.db trong Download!"
-    echo "💡 Tool vẫn có thể tạo mới, nhưng nên có file mẫu để đảm bảo"
+    echo "💡 Tool sẽ tự tạo mới nếu cần"
     log "⚠️ Không tìm thấy Cookies.db"
 fi
 
@@ -93,41 +90,69 @@ log "📦 Package: $PACKAGE"
 log "🎮 Place ID: $PLACE_ID"
 
 # ============================================================
-# PHASE 1: TOOL 1 (CÓ RETRY)
+# PHASE 1: KIỂM TRA FILE CẦN THIẾT + TOOL 1
 # ============================================================
-log "[1/5] Chạy Tool 1 (có retry)..."
+echo ""
+echo "🔍 KIỂM TRA FILE CẦN THIẾT..."
 
-RETRY_COUNT=0
-TOOL_SUCCESS=0
+MISSING_FILES=0
 
-while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    echo ""
-    echo "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
-    log "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
-    
-    run_tool1
-    
-    if check_mt_apk; then
-        echo "✅ Đã tìm thấy $MT_APK trong Download!"
-        log "✅ Đã tìm thấy $MT_APK"
-        TOOL_SUCCESS=1
-        break
-    else
-        echo "⚠️ Chưa tìm thấy $MT_APK"
-        log "⚠️ Chưa tìm thấy $MT_APK"
-        [ $RETRY_COUNT -lt $MAX_RETRY ] && sleep 5
-    fi
-done
-
-if [ $TOOL_SUCCESS -eq 1 ]; then
-    log "✅ Tool 1 hoàn tất thành công!"
-    echo "✅ Tool 1 hoàn tất thành công!"
+if check_cookies_db; then
+    echo "✅ Đã tìm thấy Cookies.db"
 else
-    log "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
-    echo "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
-    echo "⏳ Script vẫn tiếp tục..."
+    echo "❌ Thiếu Cookies.db"
+    MISSING_FILES=$((MISSING_FILES + 1))
 fi
+
+if check_mt_apk; then
+    echo "✅ Đã tìm thấy $MT_APK"
+else
+    echo "❌ Thiếu $MT_APK"
+    MISSING_FILES=$((MISSING_FILES + 1))
+fi
+
+# Nếu thiếu file thì chạy Tool 1
+if [ $MISSING_FILES -gt 0 ]; then
+    echo ""
+    echo "⚠️ Thiếu $MISSING_FILES file cần thiết!"
+    echo "🔄 Đang chạy Tool 1 để tải về..."
+    log "🔄 Thiếu file, chạy Tool 1..."
+    
+    RETRY_COUNT=0
+    TOOL_SUCCESS=0
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo ""
+        echo "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
+        log "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
+        
+        run_tool1
+        
+        if check_mt_apk; then
+            echo "✅ Đã tìm thấy $MT_APK!"
+            TOOL_SUCCESS=1
+            break
+        else
+            echo "⚠️ Chưa tìm thấy $MT_APK"
+            [ $RETRY_COUNT -lt $MAX_RETRY ] && sleep 5
+        fi
+    done
+    
+    if [ $TOOL_SUCCESS -eq 1 ]; then
+        log "✅ Tool 1 hoàn tất thành công!"
+        echo "✅ Tool 1 hoàn tất thành công!"
+    else
+        log "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
+        echo "❌ Không tìm thấy $MT_APK sau $MAX_RETRY lần thử!"
+        echo "⏳ Script vẫn tiếp tục..."
+    fi
+else
+    echo "✅ Tất cả file đã có sẵn!"
+    log "✅ Tất cả file đã có sẵn!"
+fi
+
+echo ""
 
 # ============================================================
 # PHASE 2: CHỜ BẠN MỞ ROBLOX BẰNG TAY
@@ -166,7 +191,7 @@ echo "✅ Package đã được tạo! Tiếp tục setup..."
 echo ""
 
 # ============================================================
-# PHASE 3: NHẬP COOKIE TRỰC TIẾP VÀO TERMUX
+# PHASE 3: NHẬP COOKIE TRỰC TIẾP
 # ============================================================
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -185,7 +210,6 @@ COOKIE_LEN=$(echo -n "$COOKIE" | wc -c)
 if [ $COOKIE_LEN -lt 50 ]; then
     echo ""
     echo "❌ Cookie quá ngắn ($COOKIE_LEN ký tự)"
-    echo "📝 Vui lòng kiểm tra lại cookie và thử lại"
     log "❌ Cookie quá ngắn ($COOKIE_LEN ký tự)"
     exit 1
 fi
@@ -208,22 +232,17 @@ echo "    🔐 ĐANG CHẠY TOOL COOKIE LOGIN"
 echo "═══════════════════════════════════════════════"
 echo ""
 
-# Kiểm tra curl có hoạt động không
-if command -v curl &> /dev/null; then
-    # Thử curl với timeout ngắn
-    if curl -s --max-time 5 https://google.com &> /dev/null; then
-        echo "✅ Dùng curl..."
-        bash <(curl -s https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
-    else
-        echo "⚠️ Curl lỗi, chuyển sang wget..."
-        bash <(wget -qO- https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
-    fi
+# Thử curl, nếu lỗi thì dùng wget
+if command -v curl &> /dev/null && curl -s --max-time 5 https://google.com &> /dev/null; then
+    echo "✅ Dùng curl..."
+    bash <(curl -s https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
 else
-    echo "⚠️ Không có curl, dùng wget..."
+    echo "⚠️ Curl lỗi, chuyển sang wget..."
     bash <(wget -qO- https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
 fi
 
 log "✅ Đã chạy tool Cookie Login!"
+
 # ============================================================
 # PHASE 5: RESTART ROBLOX + VÀO GAME + COPY SCRIPT
 # ============================================================
