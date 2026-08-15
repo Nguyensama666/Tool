@@ -5,11 +5,6 @@
 #   Hỗ trợ: cookie thuần, user:pass:cookie
 # ==========================================
 
-# ====== CẤU HÌNH ======
-PACKAGE="com.roblox.client"   # <--- SỬA Ở ĐÂY
-# PACKAGE="com.roblox.mod"    # Ví dụ package mod
-# PACKAGE="com.roblox.beta"   # Ví dụ package beta
-
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -19,8 +14,6 @@ NC='\033[0m'
 echo -e "${BLUE}=========================================="
 echo "   ROBLOX COOKIE INJECTOR"
 echo -e "==========================================${NC}"
-echo -e "${YELLOW}📦 Package: $PACKAGE${NC}"
-echo ""
 
 # ==========================================
 # HÀM TRÍCH XUẤT COOKIE
@@ -71,12 +64,12 @@ echo -e "${GREEN}✅ Cookie: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
 echo ""
 echo -e "${YELLOW}📋 BẮT ĐẦU INJECT COOKIE...${NC}"
 
-echo "⏹ Force stop $PACKAGE..."
-su -c "am force-stop $PACKAGE" 2>/dev/null
+echo "⏹ Force stop Roblox..."
+su -c "am force-stop com.roblox.client" 2>/dev/null
 sleep 2
 
 echo "📁 Tạo thư mục..."
-su -c "mkdir -p /data/data/$PACKAGE/app_webview/Default" 2>/dev/null
+su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
 
 # Tìm file mẫu Cookies.db
 if [ -f "/sdcard/Download/cklogin/Cookies.db" ]; then
@@ -106,22 +99,12 @@ fi
 echo -e "${GREEN}✅ Đã ghi $COUNT records${NC}"
 
 echo "📋 Copy vào Roblox..."
-su -c "cp /sdcard/Download/Cookies.db /data/data/$PACKAGE/app_webview/Default/Cookies" 2>/dev/null
+su -c "cp /sdcard/Download/Cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chown 10105:10105 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
 
-# Lấy UID/GID của package
-UID=$(su -c "stat -c %u /data/data/$PACKAGE" 2>/dev/null)
-GID=$(su -c "stat -c %g /data/data/$PACKAGE" 2>/dev/null)
-
-if [ -n "$UID" ] && [ -n "$GID" ]; then
-    su -c "chown ${UID}:${GID} /data/data/$PACKAGE/app_webview/Default/Cookies" 2>/dev/null
-fi
-su -c "chmod 660 /data/data/$PACKAGE/app_webview/Default/Cookies" 2>/dev/null
-su -c "rm -f /data/data/$PACKAGE/app_webview/Default/Cookies-journal" 2>/dev/null
-
-# ==========================================
-# GIỮ LẠI COOKIES.DB (KHÔNG XÓA)
-# ==========================================
-echo -e "${YELLOW}💾 Giữ lại Cookies.db trong /sdcard/Download/ để dùng sau${NC}"
+rm -f /sdcard/Download/Cookies.db
 
 echo -e "${GREEN}=========================================="
 echo "✅ ĐĂNG NHẬP THÀNH CÔNG!"
@@ -132,9 +115,9 @@ echo -e "==========================================${NC}"
 # ==========================================
 echo ""
 echo -e "${YELLOW}🚀 MỞ ROBLOX...${NC}"
-su -c "am force-stop $PACKAGE" 2>/dev/null
+su -c "am force-stop com.roblox.client" 2>/dev/null
 sleep 2
-su -c "monkey -p $PACKAGE -c android.intent.category.LAUNCHER 1" 2>/dev/null
+su -c "monkey -p com.roblox.client -c android.intent.category.LAUNCHER 1" 2>/dev/null
 
 echo ""
 echo -e "${BLUE}📌 Đợi 10-15 giây để Roblox load${NC}"
