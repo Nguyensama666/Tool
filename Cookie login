@@ -1,3 +1,5 @@
+pkg install python
+pkg install sqlite
 cat > ~/roblox_login.sh << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 
