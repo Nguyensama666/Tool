@@ -182,11 +182,19 @@ inject_cookie() {
 # ==========================================
 
 # 1. Kiểm tra file cookie.txt
+COOKIE=""
 if [ -f "/sdcard/Download/cookie.txt" ]; then
     COOKIE_FROM_FILE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
     if [ -n "$COOKIE_FROM_FILE" ] && [ ${#COOKIE_FROM_FILE} -gt 100 ]; then
         echo -e "${GREEN}✅ Tìm thấy cookie trong /sdcard/Download/cookie.txt${NC}"
-        COOKIE="$COOKIE_FROM_FILE"
+        echo -e "${YELLOW}💡 Cookie: ${COOKIE_FROM_FILE:0:30}...${NC}"
+        echo ""
+        echo -e "${YELLOW}Bạn có muốn dùng cookie này không? (y/n)${NC}"
+        echo -n "➤ Chọn: "
+        read -r use_existing
+        if [[ "$use_existing" =~ ^[Yy]$ ]]; then
+            COOKIE="$COOKIE_FROM_FILE"
+        fi
     fi
 fi
 
@@ -204,6 +212,7 @@ check_cookie "$COOKIE"
 if [ $? -ne 0 ]; then
     echo ""
     echo -e "${YELLOW}💡 Cookie không hợp lệ. Bạn có muốn nhập cookie mới? (y/n)${NC}"
+    echo -n "➤ Chọn: "
     read -r retry
     if [[ "$retry" =~ ^[Yy]$ ]]; then
         input_cookie
