@@ -11,7 +11,7 @@ HEARTBEAT_FILE="/storage/emulated/0/Arceus X/workspace/heartbeat.txt"
 
 # Cấu hình thời gian
 CHECK_INTERVAL=10         # Tần suất kiểm tra (giây)
-MAX_TIMEOUT=30            # Quá 30s không gửi heartbeat sẽ Rejoin
+MAX_TIMEOUT=80            # Quá 30s không gửi heartbeat sẽ Rejoin
 WAIT_AFTER_LAUNCH=90      # Thời gian chờ game load khi khởi động
 
 ENABLE_AUTO_RESTART="true"
