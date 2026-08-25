@@ -26,7 +26,7 @@ ENABLE_LOGGING="false"
 DOWNLOAD="/sdcard/Download"
 COOKIE_FILE="$DOWNLOAD/$COOKIE_FILE_NAME"
 LOG_FILE="$DOWNLOAD/auto_log.txt"
-CODEX_AUTOEXEC="/storage/emulated/0/Codex/Autoexec"
+CODEX_AUTOEXEC="/storage/emulated/0/Arceus X/Autoexec"
 MT_APK="MT_2.26.2.apk"
 
 # ====== HÀM LOG ======
