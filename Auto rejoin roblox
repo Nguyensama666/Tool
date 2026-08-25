@@ -1,15 +1,18 @@
 #!/bin/bash
 # ============================================================
-# AUTO REJOIN VIA WORKSPACE HEARTBEAT (2026)
+# AUTO REJOIN VIA ARCEUS X WORKSPACE HEARTBEAT
 # ============================================================
 
 PACKAGE="com.roblox.client"
 PLACE_ID="2753915549"
 
+# Đường dẫn Workspace chính xác của Arceus X
+HEARTBEAT_FILE="/storage/emulated/0/Arceus X/workspace/heartbeat.txt"
+
 # Cấu hình thời gian
 CHECK_INTERVAL=10         # Tần suất kiểm tra (giây)
-MAX_TIMEOUT=30            # Hạn mức chờ (giây) - Quá 30s không gửi heartbeat sẽ Rejoin
-WAIT_AFTER_LAUNCH=30      # Thời gian chờ game load khi khởi động
+MAX_TIMEOUT=30            # Quá 30s không gửi heartbeat sẽ Rejoin
+WAIT_AFTER_LAUNCH=90      # Thời gian chờ game load khi khởi động
 
 ENABLE_AUTO_RESTART="true"
 AUTO_RESTART_INTERVAL=3600 # Restart định kỳ giải phóng RAM (1 tiếng)
@@ -22,32 +25,6 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# 🛠️ TỰ ĐỘNG TÌM ĐƯỜNG DẪN WORKSPACE CỦA EXECUTOR
-find_heartbeat_file() {
-    # Kiểm tra các thư mục workspace phổ biến của các Executor trên Android
-    POSSIBLE_PATHS=(
-        "/sdcard/Delta/workspace/heartbeat.txt"
-        "/sdcard/Hydrogen/workspace/heartbeat.txt"
-        "/sdcard/Fluxus/workspace/heartbeat.txt"
-        "/sdcard/Codex/workspace/heartbeat.txt"
-        "/sdcard/ArceusX/workspace/heartbeat.txt"
-        "/sdcard/Cryptic/workspace/heartbeat.txt"
-    )
-
-    for path in "${POSSIBLE_PATHS[@]}"; do
-        if [ -f "$path" ]; then
-            echo "$path"
-            return
-        fi
-    done
-
-    # Nếu không tìm thấy ở vị trí mặc định, dùng find quét trong /sdcard
-    FOUND=$(su -c "find /sdcard -type f -name 'heartbeat.txt' 2>/dev/null | head -n 1")
-    if [ -n "$FOUND" ]; then
-        echo "$FOUND"
-    fi
-}
-
 rejoin_game() {
     log "🔄 Tiến hành khởi động lại Roblox vào Blox Fruits (PlaceID: $PLACE_ID)..."
     
@@ -55,11 +32,8 @@ rejoin_game() {
     su -c "am force-stop $PACKAGE" 2>/dev/null
     sleep 3
 
-    # Xóa file heartbeat cũ để tránh nhận nhầm mốc thời gian cũ
-    HEARTBEAT_FILE=$(find_heartbeat_file)
-    if [ -n "$HEARTBEAT_FILE" ]; then
-        rm -f "$HEARTBEAT_FILE"
-    fi
+    # Xóa file heartbeat cũ để tránh nhận nhầm thời gian cũ
+    rm -f "$HEARTBEAT_FILE" 2>/dev/null
 
     # Mở lại Blox Fruits
     su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000" 2>/dev/null
@@ -74,7 +48,7 @@ rejoin_game() {
 # ============================================================
 
 echo "═══════════════════════════════════════════════"
-echo "    🤖 AUTO REJOIN BLOX FRUITS (WORKSPACE HEARTBEAT)"
+echo "    🤖 AUTO REJOIN BLOX FRUITS (ARCEUS X)"
 echo "═══════════════════════════════════════════════"
 log "🚀 Tool Auto Rejoin bắt đầu hoạt động..."
 
@@ -84,11 +58,9 @@ while true; do
     CURRENT_TIME=$(date +%s)
     ELAPSED_TIME=$((CURRENT_TIME - LAST_RESTART_TIME))
 
-    # 1. Định vị file heartbeat.txt trong Workspace
-    HEARTBEAT_FILE=$(find_heartbeat_file)
-
-    if [ -z "$HEARTBEAT_FILE" ] || [ ! -f "$HEARTBEAT_FILE" ]; then
-        log "⚠️ KHÔNG TÌM THẤY HEARTBEAT: File chưa được tạo hoặc game chưa chạy Script!"
+    # 1. Kiểm tra xem file heartbeat có tồn tại không
+    if [ ! -f "$HEARTBEAT_FILE" ]; then
+        log "⚠️ KHÔNG TÌM THẤY HEARTBEAT: Game/Script chưa tạo file heartbeat.txt!"
         rejoin_game
         continue
     fi
@@ -96,16 +68,16 @@ while true; do
     # 2. Đọc mốc thời gian từ file heartbeat
     LAST_HEARTBEAT=$(cat "$HEARTBEAT_FILE" 2>/dev/null | tr -d '\r\n')
 
-    # Kiểm tra xem dữ liệu trong file có phải là số hay không
+    # Kiểm tra dữ liệu đọc được có phải là số không
     if [[ "$LAST_HEARTBEAT" =~ ^[0-9]+$ ]]; then
         TIME_DIFF=$((CURRENT_TIME - LAST_HEARTBEAT))
 
         if [ $TIME_DIFF -gt $MAX_TIMEOUT ]; then
-            log "⚠️ MẤT KẾT NỐI/ĐỨNG GAME: Script không gửi tín hiệu trong $TIME_DIFF giây (Giới hạn: ${MAX_TIMEOUT}s)!"
+            log "⚠️ MẤT KẾT NỐI/DISCONNECT: Arceus X ngừng gửi tín hiệu ${TIME_DIFF}s (Quá giới hạn ${MAX_TIMEOUT}s)!"
             rejoin_game
             continue
         else
-            log "✅ Game hoạt động bình thường (Heartbeat gửi cách đây ${TIME_DIFF}s)."
+            log "✅ Game bình thường (Heartbeat gửi cách đây ${TIME_DIFF}s)."
         fi
     else
         log "⚠️ LỖI ĐỌC FILE: Dữ liệu heartbeat không hợp lệ."
@@ -113,7 +85,7 @@ while true; do
         continue
     fi
 
-    # 3. Tự động Restart định kỳ (Chống tràn RAM)
+    # 3. Tự động Restart định kỳ (Chống tràn RAM / Lag)
     if [ "$ENABLE_AUTO_RESTART" = "true" ] && [ $ELAPSED_TIME -ge $AUTO_RESTART_INTERVAL ]; then
         log "⏰ RESTART ĐỊNH KỲ: Đã đủ $AUTO_RESTART_INTERVAL giây treo game. Tiến hành khởi động lại!"
         rejoin_game
