@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# AUTO ROBLOX - DÁN COOKIE TRỰC TIẾP VÀO TERMUX
+# AUTO ROBLOX - TỰ ĐỘNG FULL (FIXED 2026)
 # ============================================================
 
 echo "═══════════════════════════════════════════════"
@@ -21,13 +21,16 @@ WAIT_PACKAGE_CHECK=5
 WAIT_RESTART=5
 WAIT_GAME_LOAD=5
 MAX_RETRY=3
-ENABLE_LOGGING="false"
+ENABLE_LOGGING="true"
 
 DOWNLOAD="/sdcard/Download"
 COOKIE_FILE="$DOWNLOAD/$COOKIE_FILE_NAME"
 LOG_FILE="$DOWNLOAD/auto_log.txt"
 CODEX_AUTOEXEC="/storage/emulated/0/Arceus X/Autoexec"
 MT_APK="MT_2.26.2.apk"
+
+# URL Tool 1 (GitHub)
+TOOL1_URL="https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex"
 
 # ====== HÀM LOG ======
 log() {
@@ -38,28 +41,40 @@ log() {
 
 # ====== HÀM KIỂM TRA FILE ======
 check_mt_apk() {
-    [ -f "$DOWNLOAD/$MT_APK" ]
+    [ -s "$DOWNLOAD/$MT_APK" ]
 }
 
 check_cookies_db() {
-    [ -f "$DOWNLOAD/Cookies.db" ]
+    [ -s "$DOWNLOAD/Cookies.db" ]
 }
 
-# ====== HÀM CHẠY TOOL 1 (BẢN CŨ) ======
+# ====== HÀM CHẠY TOOL 1 ======
 run_tool1() {
-    log "🔄 Đang chạy Tool 1..."
-    echo "🔄 Đang tải file cần thiết (có thể mất vài phút)..."
-    
-    # Tool 1 bản cũ - dùng yes | curl ... | python3 &
-    yes | curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3 &
-    
-    wait
-    log "✅ Tool 1 đã chạy xong!"
-    echo "✅ Tool 1 đã chạy xong!"
+    log "🔄 Đang tải file cần thiết từ GitHub..."
+    echo "🔄 Đang chạy Tool 1 để tải file..."
+
+    TMP_PY="/tmp/tool1_script.py"
+    rm -f "$TMP_PY"
+
+    if command -v curl &>/dev/null; then
+        curl -s -L "${TOOL1_URL}?t=$(date +%s)" -o "$TMP_PY"
+    else
+        wget -qO "$TMP_PY" "${TOOL1_URL}?t=$(date +%s)"
+    fi
+
+    if [ -s "$TMP_PY" ]; then
+        python3 "$TMP_PY"
+        rm -f "$TMP_PY"
+        log "✅ Tool 1 thực thi xong!"
+        echo "✅ Tool 1 thực thi xong!"
+    else
+        log "❌ Không thể tải script Tool 1 từ GitHub (File rỗng hoặc lỗi mạng)."
+        echo "❌ Lỗi mạng: Không tải được script Tool 1 từ GitHub!"
+    fi
 }
 
 # ============================================================
-# CÀI ĐẶT MÔI TRƯỜNG (ĐẦY ĐỦ)
+# CÀI ĐẶT MÔI TRƯỜNG
 # ============================================================
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 
@@ -99,117 +114,79 @@ log "🎮 Place ID: $PLACE_ID"
 echo ""
 echo "🔍 KIỂM TRA FILE CẦN THIẾT..."
 
-MISSING_FILES=0
-MISSING_LIST=""
-
-if check_cookies_db; then
-    echo "✅ Đã tìm thấy Cookies.db"
+if check_cookies_db && check_mt_apk; then
+    echo "✅ Tất cả file đã có sẵn trong $DOWNLOAD!"
+    log "✅ Tất cả file đã có sẵn!"
 else
-    echo "❌ Thiếu Cookies.db"
-    MISSING_FILES=$((MISSING_FILES + 1))
-    MISSING_LIST="$MISSING_LIST Cookies.db"
-fi
-
-if check_mt_apk; then
-    echo "✅ Đã tìm thấy $MT_APK"
-else
-    echo "❌ Thiếu $MT_APK"
-    MISSING_FILES=$((MISSING_FILES + 1))
-    MISSING_LIST="$MISSING_LIST $MT_APK"
-fi
-
-# Nếu thiếu file (1 trong 2 hoặc cả 2) thì chạy Tool 1
-if [ $MISSING_FILES -gt 0 ]; then
-    echo ""
-    echo "⚠️ Thiếu $MISSING_FILES file cần thiết:$MISSING_LIST"
-    echo "🔄 Đang chạy Tool 1 để tải về..."
-    log "🔄 Thiếu file, chạy Tool 1..."
-    
     RETRY_COUNT=0
     TOOL_SUCCESS=0
-    
+
     while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
         RETRY_COUNT=$((RETRY_COUNT + 1))
         echo ""
-        echo "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
+        echo "🔁 [Lần thử $RETRY_COUNT/$MAX_RETRY] Thiếu file, đang tải..."
         log "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
-        
+
         run_tool1
-        
-        MISSING_AFTER=0
-        if ! check_cookies_db; then
-            MISSING_AFTER=$((MISSING_AFTER + 1))
-        fi
-        if ! check_mt_apk; then
-            MISSING_AFTER=$((MISSING_AFTER + 1))
-        fi
-        
-        if [ $MISSING_AFTER -eq 0 ]; then
+
+        if check_cookies_db && check_mt_apk; then
             echo "✅ Tất cả file đã được tải thành công!"
             TOOL_SUCCESS=1
             break
         else
-            echo "⚠️ Vẫn còn thiếu $MISSING_AFTER file"
-            [ $RETRY_COUNT -lt $MAX_RETRY ] && sleep 5
+            echo "⚠️ Vẫn còn thiếu file sau lần thử $RETRY_COUNT..."
+            [ $RETRY_COUNT -lt $MAX_RETRY ] && sleep 3
         fi
     done
-    
-    if [ $TOOL_SUCCESS -eq 1 ]; then
-        log "✅ Tool 1 hoàn tất thành công!"
-        echo "✅ Tool 1 hoàn tất thành công!"
-    else
-        log "❌ Vẫn còn thiếu file sau $MAX_RETRY lần thử!"
-        echo "❌ Vẫn còn thiếu file sau $MAX_RETRY lần thử!"
-        echo "📝 Bạn cần tự thêm file vào Download:"
-        if ! check_cookies_db; then
-            echo "   - Cookies.db"
-        fi
-        if ! check_mt_apk; then
-            echo "   - $MT_APK"
-        fi
-        echo "⏳ Script vẫn tiếp tục..."
+
+    if [ $TOOL_SUCCESS -eq 0 ]; then
+        echo "❌ Không thể tải file tự động sau $MAX_RETRY lần thử."
+        echo "📝 Vui lòng kiểm tra lại kết nối mạng hoặc link GitHub của Tool 1."
     fi
-else
-    echo "✅ Tất cả file đã có sẵn!"
-    log "✅ Tất cả file đã có sẵn!"
 fi
 
 echo ""
 
 # ============================================================
-# PHASE 2: CHỜ BẠN MỞ ROBLOX BẰNG TAY
+# PHASE 2: TỰ ĐỘNG MỞ ROBLOX LẦN ĐẦU (ĐÃ SỬA TỰ ĐỘNG)
 # ============================================================
 echo ""
 echo "═══════════════════════════════════════════════"
-echo "    👆 VUI LÒNG MỞ ROBLOX BẰNG TAY"
+echo "    🚀 TỰ ĐỘNG MỞ ROBLOX ĐỂ KHỞI TẠO PACKAGE"
 echo "═══════════════════════════════════════════════"
 echo ""
-echo "📱 Hãy ấn vào icon Roblox trên màn hình"
-echo "⏳ Script sẽ tự động kiểm tra package mỗi $WAIT_PACKAGE_CHECK giây"
-echo "📦 Package cần tìm: $PACKAGE"
-echo ""
 
-log "[2/5] CHỜ BẠN MỞ ROBLOX BẰNG TAY..."
+log "[2/5] TỰ ĐỘNG MỞ ROBLOX LẦN ĐẦU..."
+echo "📱 Đang kích hoạt mở ứng dụng Roblox..."
+
+# Tắt Roblox trước để chuẩn bị mở mới
+su -c "am force-stop $PACKAGE" 2>/dev/null
+sleep 2
+
+# Mở ứng dụng Roblox tự động
+su -c "monkey -p $PACKAGE -c android.intent.category.LAUNCHER 1" 2>/dev/null
+
+echo "⏳ Đang đợi ứng dụng khởi tạo dữ liệu package..."
 
 PACKAGE_FOUND=0
 CHECK_COUNT=0
 
 while [ $PACKAGE_FOUND -eq 0 ]; do
     CHECK_COUNT=$((CHECK_COUNT + 1))
-    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra package..."
-    
-    if [ -d "/storage/emulated/0/Android/data/$PACKAGE" ]; then
-        echo "✅ ĐÃ TÌM THẤY PACKAGE!"
+    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra thư mục package..."
+
+    if [ -d "/data/data/$PACKAGE" ] || [ -d "/storage/emulated/0/Android/data/$PACKAGE" ]; then
+        echo "✅ ĐÃ TÌM THẤY VÀ KHỞI TẠO PACKAGE THÀNH CÔNG!"
         log "✅ Đã tìm thấy package: $PACKAGE"
         PACKAGE_FOUND=1
     else
-        echo "⏳ Chưa có package, kiểm tra lại sau $WAIT_PACKAGE_CHECK giây..."
+        echo "⏳ Chưa phát hiện package, kiểm tra lại sau $WAIT_PACKAGE_CHECK giây..."
         sleep $WAIT_PACKAGE_CHECK
     fi
 done
 
 echo ""
-echo "✅ Package đã được tạo! Tiếp tục setup..."
+echo "✅ Package đã sẵn sàng! Tiếp tục setup..."
 echo ""
 
 # ============================================================
@@ -254,17 +231,17 @@ echo "    🔐 ĐANG CHẠY TOOL COOKIE LOGIN"
 echo "═══════════════════════════════════════════════"
 echo ""
 
-# Thử curl, nếu lỗi thì dùng wget
 if command -v curl &> /dev/null && curl -s --max-time 5 https://google.com &> /dev/null; then
     echo "✅ Dùng curl..."
-    bash <(curl -s https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
+    bash <(curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s)")
 else
     echo "⚠️ Curl lỗi, chuyển sang wget..."
-    bash <(wget -qO- https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
+    bash <(wget -qO- "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s)")
 fi
 
 log "✅ Đã chạy tool Cookie Login!"
 sleep 5
+
 # ============================================================
 # PHASE 5: RESTART ROBLOX + VÀO GAME + COPY SCRIPT
 # ============================================================
