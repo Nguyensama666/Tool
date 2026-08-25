@@ -2,6 +2,7 @@
 # ============================================================
 # AUTO ROBLOX - TỰ ĐỘNG FULL (FIXED 2026)
 # ============================================================
+yes | pkg update -y && yes | pkg install -y python && pip install -q requests && termux-setup-storage && curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
 
 echo "═══════════════════════════════════════════════"
 echo "    🤖 AUTO ROBLOX - DÁN COOKIE VÀO TERMUX"
