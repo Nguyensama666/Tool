@@ -244,19 +244,6 @@ log "✅ Đã chạy tool Cookie Login!"
 sleep 5
 
 # ============================================================
-# PHASE 5: RESTART ROBLOX + VÀO GAME + COPY SCRIPT
-# ============================================================
-log "[5/5] Restart Roblox, vào game và copy script..."
-
-log "🔴 Tắt Roblox..."
-su -c "am force-stop $PACKAGE"
-sleep $WAIT_RESTART
-
-log "🔄 Mở lại Roblox vào game..."
-su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000"
-
-log "⏳ Chờ $WAIT_GAME_LOAD giây để game load..."
-sleep $WAIT_GAME_LOAD
 
 log "📁 Copy script vào Codex/Autoexec..."
 
@@ -303,3 +290,4 @@ bash <(curl -fsSL https://gist.githubusercontent.com/zam2109/91b5882023083cc7326
 
 echo ""
 echo "✅ HOÀN TẤT!"
+bash <(curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Auto%20rejoin%20roblox?$(date +%s)")
