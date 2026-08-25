@@ -16,24 +16,6 @@ echo "   ROBLOX COOKIE INJECTOR"
 echo -e "==========================================${NC}"
 
 # ==========================================
-# CẤU HÌNH PACKAGE NAME
-# ==========================================
-CONFIG_FILE="/sdcard/Download/injector_config.txt"
-DEFAULT_PACKAGE="com.roblox.client"
-
-# Đọc package name từ file config nếu có
-if [ -f "$CONFIG_FILE" ]; then
-    PACKAGE_NAME=$(grep -v '^#' "$CONFIG_FILE" | grep -v '^$' | head -n 1)
-    if [ -z "$PACKAGE_NAME" ]; then
-        PACKAGE_NAME="$DEFAULT_PACKAGE"
-    fi
-else
-    PACKAGE_NAME="$DEFAULT_PACKAGE"
-fi
-
-echo -e "${BLUE}📱 Package: ${PACKAGE_NAME}${NC}"
-
-# ==========================================
 # HÀM TRÍCH XUẤT COOKIE
 # ==========================================
 extract_cookie() {
@@ -61,9 +43,6 @@ if [ ! -f "/sdcard/Download/cookie.txt" ]; then
     echo -e "${YELLOW}💡 Hãy tạo file và dán cookie vào:${NC}"
     echo "   echo '_|WARNING...' > /sdcard/Download/cookie.txt"
     echo "   hoặc: echo 'user:pass:_|WARNING...' > /sdcard/Download/cookie.txt"
-    echo ""
-    echo -e "${YELLOW}💡 Để đổi package name, tạo file:${NC}"
-    echo "   echo 'com.roblox.client' > /sdcard/Download/injector_config.txt"
     exit 1
 fi
 
@@ -85,12 +64,12 @@ echo -e "${GREEN}✅ Cookie: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
 echo ""
 echo -e "${YELLOW}📋 BẮT ĐẦU INJECT COOKIE...${NC}"
 
-echo "⏹ Force stop $PACKAGE_NAME..."
-su -c "am force-stop $PACKAGE_NAME" 2>/dev/null
+echo "⏹ Force stop Roblox..."
+su -c "am force-stop com.roblox.client" 2>/dev/null
 sleep 2
 
 echo "📁 Tạo thư mục..."
-su -c "mkdir -p /data/data/$PACKAGE_NAME/app_webview/Default" 2>/dev/null
+su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
 
 # Tìm file mẫu Cookies.db
 if [ -f "/sdcard/Download/cklogin/Cookies.db" ]; then
@@ -119,11 +98,11 @@ if [ "$COUNT" = "0" ]; then
 fi
 echo -e "${GREEN}✅ Đã ghi $COUNT records${NC}"
 
-echo "📋 Copy vào $PACKAGE_NAME..."
-su -c "cp /sdcard/Download/Cookies.db /data/data/$PACKAGE_NAME/app_webview/Default/Cookies" 2>/dev/null
-su -c "chown 10105:10105 /data/data/$PACKAGE_NAME/app_webview/Default/Cookies" 2>/dev/null
-su -c "chmod 660 /data/data/$PACKAGE_NAME/app_webview/Default/Cookies" 2>/dev/null
-su -c "rm -f /data/data/$PACKAGE_NAME/app_webview/Default/Cookies-journal" 2>/dev/null
+echo "📋 Copy vào Roblox..."
+su -c "cp /sdcard/Download/Cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chown 10105:10105 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
 
 rm -f /sdcard/Download/Cookies.db
 
@@ -135,13 +114,13 @@ echo -e "==========================================${NC}"
 # MỞ ROBLOX
 # ==========================================
 echo ""
-echo -e "${YELLOW}🚀 MỞ $PACKAGE_NAME...${NC}"
-su -c "am force-stop $PACKAGE_NAME" 2>/dev/null
+echo -e "${YELLOW}🚀 MỞ ROBLOX...${NC}"
+su -c "am force-stop com.roblox.client" 2>/dev/null
 sleep 2
-su -c "monkey -p $PACKAGE_NAME -c android.intent.category.LAUNCHER 1" 2>/dev/null
+su -c "monkey -p com.roblox.client -c android.intent.category.LAUNCHER 1" 2>/dev/null
 
 echo ""
-echo -e "${BLUE}📌 Đợi 10-15 giây để app load${NC}"
+echo -e "${BLUE}📌 Đợi 10-15 giây để Roblox load${NC}"
 echo -e "${BLUE}   Nếu vẫn ở màn hình đăng nhập:${NC}"
-echo -e "${BLUE}   1. Vào Settings > Apps > $PACKAGE_NAME > Force Stop${NC}"
-echo -e "${BLUE}   2. Mở lại app${NC}"
+echo -e "${BLUE}   1. Vào Settings > Apps > Roblox > Force Stop${NC}"
+echo -e "${BLUE}   2. Mở lại Roblox${NC}"
