@@ -48,25 +48,41 @@ check_cookies_db() {
     [ -s "$DOWNLOAD/Cookies.db" ]
 }
 
-# ====== HÀM CHẠY TOOL 1 ======
+# ====== HÀM CHẠY TOOL 1 (ĐÃ FIX LỖI TẢI & THỰC THI) ======
 run_tool1() {
     log "🔄 Đang tải file cần thiết từ GitHub..."
     echo "🔄 Đang chạy Tool 1 để tải file..."
 
-    TMP_PY="/tmp/tool1_script.py"
+    # Khởi tạo thư mục tạm chuẩn Termux
+    TMP_DIR="${TMPDIR:-$PREFIX/tmp}"
+    mkdir -p "$TMP_DIR"
+    TMP_PY="$TMP_DIR/tool1_script.py"
     rm -f "$TMP_PY"
 
+    # Tải file từ GitHub
     if command -v curl &>/dev/null; then
-        curl -s -L "${TOOL1_URL}?t=$(date +%s)" -o "$TMP_PY"
+        curl -s -L -k "${TOOL1_URL}?t=$(date +%s)" -o "$TMP_PY"
     else
-        wget -qO "$TMP_PY" "${TOOL1_URL}?t=$(date +%s)"
+        wget -q --no-check-certificate -O "$TMP_PY" "${TOOL1_URL}?t=$(date +%s)"
     fi
 
     if [ -s "$TMP_PY" ]; then
+        # Xóa ký tự xuống dòng của Windows (\r) tránh lỗi bash/python
+        sed -i 's/\r$//' "$TMP_PY" 2>/dev/null
+
+        # Thực thi bằng python3 và hiển thị trực tiếp đầu ra
         python3 "$TMP_PY"
+        PY_EXIT_CODE=$?
+
         rm -f "$TMP_PY"
-        log "✅ Tool 1 thực thi xong!"
-        echo "✅ Tool 1 thực thi xong!"
+
+        if [ $PY_EXIT_CODE -eq 0 ]; then
+            log "✅ Tool 1 thực thi xong!"
+            echo "✅ Tool 1 thực thi xong!"
+        else
+            log "❌ Tool 1 chạy bị lỗi Python (Code: $PY_EXIT_CODE)."
+            echo "❌ Lỗi: Tool 1 gặp sự cố khi chạy bằng Python!"
+        fi
     else
         log "❌ Không thể tải script Tool 1 từ GitHub (File rỗng hoặc lỗi mạng)."
         echo "❌ Lỗi mạng: Không tải được script Tool 1 từ GitHub!"
@@ -81,8 +97,8 @@ echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
 echo "[1/6] Cập nhật Termux..."
 yes | pkg update && yes | pkg upgrade -y
 
-echo "[2/6] Cài Python, SQLite, curl, wget, git..."
-yes | pkg install -y python python-pip sqlite curl wget git
+echo "[2/6] Cài Python, SQLite, curl, wget, git, sed..."
+yes | pkg install -y python python-pip sqlite curl wget git sed
 
 echo "[3/6] Cài module requests cho Python..."
 pip install requests 2>/dev/null || python3 -m pip install requests 2>/dev/null
@@ -244,7 +260,8 @@ log "✅ Đã chạy tool Cookie Login!"
 sleep 5
 
 # ============================================================
-
+# PHASE 5: COPY SCRIPT & HOÀN TẤT
+# ============================================================
 log "📁 Copy script vào Codex/Autoexec..."
 
 mkdir -p "$CODEX_AUTOEXEC"
@@ -265,14 +282,11 @@ fi
 
 log "✅ Đã hoàn tất copy script!"
 
-# ============================================================
-# HOÀN TẤT
-# ============================================================
 log "✅ Hoàn tất quá trình!"
 
 echo ""
 echo "═══════════════════════════════════════════════"
-echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
+echo "    ✅ HOÀN TẤT! ĐANG MỞ KÍCH HOẠT REJOIN"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "📊 Log: $LOG_FILE"
@@ -283,11 +297,11 @@ echo "📁 Codex Autoexec: $CODEX_AUTOEXEC"
 echo ""
 
 # ============================================================
-# SCRIPT BỔ SUNG TỪ GIST
+# SCRIPT BỔ SUNG TỪ GIST & REJOIN
 # ============================================================
 log "📥 Đang chạy script bổ sung từ gist..."
 bash <(curl -fsSL https://gist.githubusercontent.com/zam2109/91b5882023083cc73262eff796e1e31d/raw/2010a27aee4bfa0648dc1837e2c9731dd4c99df0/gistfile1.txt) 2>&1 | tee -a "$LOG_FILE"
 
 echo ""
-echo "✅ HOÀN TẤT!"
+echo "🚀 Đang kích hoạt Auto Rejoin..."
 bash <(curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Auto%20rejoin%20roblox?$(date +%s)")
