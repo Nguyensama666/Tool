@@ -148,7 +148,7 @@ fi
 echo ""
 
 # ============================================================
-# PHASE 2: TỰ ĐỘNG MỞ ROBLOX LẦN ĐẦU (ĐÃ SỬA TỰ ĐỘNG)
+# PHASE 2: TỰ ĐỘNG MỞ ROBLOX VÀ KIỂM TRA ROOT PACKAGE
 # ============================================================
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -157,27 +157,28 @@ echo "════════════════════════�
 echo ""
 
 log "[2/5] TỰ ĐỘNG MỞ ROBLOX LẦN ĐẦU..."
-echo "📱 Đang kích hoạt mở ứng dụng Roblox..."
+echo "📱 Đang mở ứng dụng Roblox..."
 
-# Tắt Roblox trước để chuẩn bị mở mới
+# Tắt Roblox trước
 su -c "am force-stop $PACKAGE" 2>/dev/null
 sleep 2
 
-# Mở ứng dụng Roblox tự động
+# Chỉ bật Roblox lên giao diện chính
 su -c "monkey -p $PACKAGE -c android.intent.category.LAUNCHER 1" 2>/dev/null
 
-echo "⏳ Đang đợi ứng dụng khởi tạo dữ liệu package..."
+echo "⏳ Đang kiểm tra thư mục root của Roblox..."
 
 PACKAGE_FOUND=0
 CHECK_COUNT=0
 
 while [ $PACKAGE_FOUND -eq 0 ]; do
     CHECK_COUNT=$((CHECK_COUNT + 1))
-    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra thư mục package..."
+    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra /data/data/$PACKAGE..."
 
-    if [ -d "/data/data/$PACKAGE" ] || [ -d "/storage/emulated/0/Android/data/$PACKAGE" ]; then
-        echo "✅ ĐÃ TÌM THẤY VÀ KHỞI TẠO PACKAGE THÀNH CÔNG!"
-        log "✅ Đã tìm thấy package: $PACKAGE"
+    # Dùng su kiểm tra thư mục root hệ thống
+    if su -c "[ -d /data/data/$PACKAGE ]" 2>/dev/null; then
+        echo "✅ ĐÃ PHÁT HIỆN THƯ MỤC ROOT PACKAGE THÀNH CÔNG!"
+        log "✅ Đã tìm thấy package root: /data/data/$PACKAGE"
         PACKAGE_FOUND=1
     else
         echo "⏳ Chưa phát hiện package, kiểm tra lại sau $WAIT_PACKAGE_CHECK giây..."
