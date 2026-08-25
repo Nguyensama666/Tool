@@ -93,7 +93,7 @@ su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/de
 su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
 su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-wal" 2>/dev/null
 
-rm -f "$TARGET_DB"
+
 
 echo -e "${GREEN}=========================================="
 echo "✅ ĐÃ INJECT COOKIE THÀNH CÔNG!"
