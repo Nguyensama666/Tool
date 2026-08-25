@@ -1,14 +1,8 @@
-yes | pkg update -y && yes | pkg install -y python && yes | pip install -q requests && termux-setup-storage && curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
-
 #!/bin/bash
 # ============================================================
-# AUTO ROBLOX - TỰ ĐỘNG FULL (OPTIMIZED 2026)
+# AUTO ROBLOX - TỰ ĐỘNG FULL (FIXED 2026)
 # ============================================================
 
-# ============================================================
-# ⚡ BƯỚC KHỞI TẠO TỐC ĐỘ CAO (TỰ ĐỘNG BỎ QUA XÁC NHẬN)
-# ============================================================
-echo ""
 echo "═══════════════════════════════════════════════"
 echo "    🤖 AUTO ROBLOX - DÁN COOKIE VÀO TERMUX"
 echo "═══════════════════════════════════════════════"
@@ -35,6 +29,9 @@ LOG_FILE="$DOWNLOAD/auto_log.txt"
 CODEX_AUTOEXEC="/storage/emulated/0/Arceus X/Autoexec"
 MT_APK="MT_2.26.2.apk"
 
+# URL Tool 1 (GitHub)
+TOOL1_URL="https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex"
+
 # ====== HÀM LOG ======
 log() {
     if [ "$ENABLE_LOGGING" = "true" ]; then
@@ -51,12 +48,68 @@ check_cookies_db() {
     [ -s "$DOWNLOAD/Cookies.db" ]
 }
 
+# ====== HÀM CHẠY TOOL 1 ======
+run_tool1() {
+    log "🔄 Đang tải file cần thiết từ GitHub..."
+    echo "🔄 Đang chạy Tool 1 để tải file..."
+
+    TMP_PY="/tmp/tool1_script.py"
+    rm -f "$TMP_PY"
+
+    if command -v curl &>/dev/null; then
+        curl -s -L "${TOOL1_URL}?t=$(date +%s)" -o "$TMP_PY"
+    else
+        wget -qO "$TMP_PY" "${TOOL1_URL}?t=$(date +%s)"
+    fi
+
+    if [ -s "$TMP_PY" ]; then
+        python3 "$TMP_PY"
+        rm -f "$TMP_PY"
+        log "✅ Tool 1 thực thi xong!"
+        echo "✅ Tool 1 thực thi xong!"
+    else
+        log "❌ Không thể tải script Tool 1 từ GitHub (File rỗng hoặc lỗi mạng)."
+        echo "❌ Lỗi mạng: Không tải được script Tool 1 từ GitHub!"
+    fi
+}
+
+# ============================================================
+# CÀI ĐẶT MÔI TRƯỜNG
+# ============================================================
+echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
+
+echo "[1/6] Cập nhật Termux..."
+yes | pkg update && yes | pkg upgrade -y
+
+echo "[2/6] Cài Python, SQLite, curl, wget, git..."
+yes | pkg install -y python python-pip sqlite curl wget git
+
+echo "[3/6] Cài module requests cho Python..."
+pip install requests 2>/dev/null || python3 -m pip install requests 2>/dev/null
+
+echo "[4/6] Cài thêm gói cần thiết..."
+yes | pkg install -y openssl ca-certificates
+
+echo "[5/6] Setup storage..."
+echo "y" | termux-setup-storage
+
+echo "[6/6] Kiểm tra môi trường..."
+if python3 -c "import requests" 2>/dev/null; then
+    echo "✅ Python requests đã sẵn sàng!"
+else
+    echo "⚠️ Python requests chưa cài, đang cài lại..."
+    pip install requests --force-reinstall 2>/dev/null
+fi
+
+echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
+echo ""
+
 log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
 log "📦 Package: $PACKAGE"
 log "🎮 Place ID: $PLACE_ID"
 
 # ============================================================
-# PHASE 1: KIỂM TRA FILE CẦN THIẾT
+# PHASE 1: KIỂM TRA FILE CẦN THIẾT + CHẠY TOOL 1 NẾU THIẾU
 # ============================================================
 echo ""
 echo "🔍 KIỂM TRA FILE CẦN THIẾT..."
@@ -71,10 +124,10 @@ else
     while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
         RETRY_COUNT=$((RETRY_COUNT + 1))
         echo ""
-        echo "🔁 [Lần thử $RETRY_COUNT/$MAX_RETRY] Thiếu file, đang tải lại..."
+        echo "🔁 [Lần thử $RETRY_COUNT/$MAX_RETRY] Thiếu file, đang tải..."
         log "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
 
-        curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
+        run_tool1
 
         if check_cookies_db && check_mt_apk; then
             echo "✅ Tất cả file đã được tải thành công!"
@@ -191,8 +244,20 @@ log "✅ Đã chạy tool Cookie Login!"
 sleep 5
 
 # ============================================================
-# PHASE 5: COPY SCRIPT & HOÀN TẤT
+# PHASE 5: RESTART ROBLOX + VÀO GAME + COPY SCRIPT
 # ============================================================
+log "[5/5] Restart Roblox, vào game và copy script..."
+
+log "🔴 Tắt Roblox..."
+su -c "am force-stop $PACKAGE"
+sleep $WAIT_RESTART
+
+log "🔄 Mở lại Roblox vào game..."
+su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000"
+
+log "⏳ Chờ $WAIT_GAME_LOAD giây để game load..."
+sleep $WAIT_GAME_LOAD
+
 log "📁 Copy script vào Codex/Autoexec..."
 
 mkdir -p "$CODEX_AUTOEXEC"
@@ -213,11 +278,14 @@ fi
 
 log "✅ Đã hoàn tất copy script!"
 
+# ============================================================
+# HOÀN TẤT
+# ============================================================
 log "✅ Hoàn tất quá trình!"
 
 echo ""
 echo "═══════════════════════════════════════════════"
-echo "    ✅ HOÀN TẤT! ĐANG MỞ KÍCH HOẠT REJOIN"
+echo "    ✅ HOÀN TẤT! ROBLOX ĐANG CHẠY"
 echo "═══════════════════════════════════════════════"
 echo ""
 echo "📊 Log: $LOG_FILE"
@@ -228,11 +296,10 @@ echo "📁 Codex Autoexec: $CODEX_AUTOEXEC"
 echo ""
 
 # ============================================================
-# SCRIPT BỔ SUNG TỪ GIST & REJOIN
+# SCRIPT BỔ SUNG TỪ GIST
 # ============================================================
 log "📥 Đang chạy script bổ sung từ gist..."
 bash <(curl -fsSL https://gist.githubusercontent.com/zam2109/91b5882023083cc73262eff796e1e31d/raw/2010a27aee4bfa0648dc1837e2c9731dd4c99df0/gistfile1.txt) 2>&1 | tee -a "$LOG_FILE"
 
 echo ""
-echo "🚀 Đang kích hoạt Auto Rejoin..."
-bash <(curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Auto%20rejoin%20roblox?$(date +%s)")
+echo "✅ HOÀN TẤT!"
