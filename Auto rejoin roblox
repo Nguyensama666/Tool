@@ -15,7 +15,7 @@ CHECK_INTERVAL=10
 
 # 2. Tự động Restart định kỳ giải phóng RAM (giây) - Mặc định: 10800s = 3 tiếng
 ENABLE_AUTO_RESTART="true"
-AUTO_RESTART_INTERVAL=10800
+AUTO_RESTART_INTERVAL=3600
 
 # 3. Thời gian chờ Roblox load vào lại game trước khi tiếp tục kiểm tra (giây)
 WAIT_AFTER_LAUNCH=30
