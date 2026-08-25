@@ -1,9 +1,18 @@
 #!/bin/bash
 # ============================================================
-# AUTO ROBLOX - TỰ ĐỘNG FULL (FIXED 2026)
+# AUTO ROBLOX - TỰ ĐỘNG FULL (OPTIMIZED 2026)
 # ============================================================
-yes | pkg update -y && yes | pkg install -y python && pip install -q requests && termux-setup-storage && curl -s "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
 
+# ============================================================
+# ⚡ BƯỚC KHỞI TẠO TỐC ĐỘ CAO (TỰ ĐỘNG BỎ QUA XÁC NHẬN)
+# ============================================================
+echo "🚀 Đang khởi tạo môi trường và tự động tải Tool 1..."
+yes | pkg update -y && yes | pkg install -y python sqlite curl wget git sed && pip install -q requests && yes | termux-setup-storage
+
+echo "🔄 Đang chạy Tool 1 trực tiếp..."
+curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
+
+echo ""
 echo "═══════════════════════════════════════════════"
 echo "    🤖 AUTO ROBLOX - DÁN COOKIE VÀO TERMUX"
 echo "═══════════════════════════════════════════════"
@@ -30,9 +39,6 @@ LOG_FILE="$DOWNLOAD/auto_log.txt"
 CODEX_AUTOEXEC="/storage/emulated/0/Arceus X/Autoexec"
 MT_APK="MT_2.26.2.apk"
 
-# URL Tool 1 (GitHub)
-TOOL1_URL="https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex"
-
 # ====== HÀM LOG ======
 log() {
     if [ "$ENABLE_LOGGING" = "true" ]; then
@@ -49,84 +55,12 @@ check_cookies_db() {
     [ -s "$DOWNLOAD/Cookies.db" ]
 }
 
-# ====== HÀM CHẠY TOOL 1 (ĐÃ FIX LỖI TẢI & THỰC THI) ======
-run_tool1() {
-    log "🔄 Đang tải file cần thiết từ GitHub..."
-    echo "🔄 Đang chạy Tool 1 để tải file..."
-
-    # Khởi tạo thư mục tạm chuẩn Termux
-    TMP_DIR="${TMPDIR:-$PREFIX/tmp}"
-    mkdir -p "$TMP_DIR"
-    TMP_PY="$TMP_DIR/tool1_script.py"
-    rm -f "$TMP_PY"
-
-    # Tải file từ GitHub
-    if command -v curl &>/dev/null; then
-        curl -s -L -k "${TOOL1_URL}?t=$(date +%s)" -o "$TMP_PY"
-    else
-        wget -q --no-check-certificate -O "$TMP_PY" "${TOOL1_URL}?t=$(date +%s)"
-    fi
-
-    if [ -s "$TMP_PY" ]; then
-        # Xóa ký tự xuống dòng của Windows (\r) tránh lỗi bash/python
-        sed -i 's/\r$//' "$TMP_PY" 2>/dev/null
-
-        # Thực thi bằng python3 và hiển thị trực tiếp đầu ra
-        python3 "$TMP_PY"
-        PY_EXIT_CODE=$?
-
-        rm -f "$TMP_PY"
-
-        if [ $PY_EXIT_CODE -eq 0 ]; then
-            log "✅ Tool 1 thực thi xong!"
-            echo "✅ Tool 1 thực thi xong!"
-        else
-            log "❌ Tool 1 chạy bị lỗi Python (Code: $PY_EXIT_CODE)."
-            echo "❌ Lỗi: Tool 1 gặp sự cố khi chạy bằng Python!"
-        fi
-    else
-        log "❌ Không thể tải script Tool 1 từ GitHub (File rỗng hoặc lỗi mạng)."
-        echo "❌ Lỗi mạng: Không tải được script Tool 1 từ GitHub!"
-    fi
-}
-
-# ============================================================
-# CÀI ĐẶT MÔI TRƯỜNG
-# ============================================================
-echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
-
-echo "[1/6] Cập nhật Termux..."
-yes | pkg update && yes | pkg upgrade -y
-
-echo "[2/6] Cài Python, SQLite, curl, wget, git, sed..."
-yes | pkg install -y python python-pip sqlite curl wget git sed
-
-echo "[3/6] Cài module requests cho Python..."
-pip install requests 2>/dev/null || python3 -m pip install requests 2>/dev/null
-
-echo "[4/6] Cài thêm gói cần thiết..."
-yes | pkg install -y openssl ca-certificates
-
-echo "[5/6] Setup storage..."
-echo "y" | termux-setup-storage
-
-echo "[6/6] Kiểm tra môi trường..."
-if python3 -c "import requests" 2>/dev/null; then
-    echo "✅ Python requests đã sẵn sàng!"
-else
-    echo "⚠️ Python requests chưa cài, đang cài lại..."
-    pip install requests --force-reinstall 2>/dev/null
-fi
-
-echo "✅ MÔI TRƯỜNG ĐÃ SẴN SÀNG!"
-echo ""
-
 log "🚀 BẮT ĐẦU TỰ ĐỘNG..."
 log "📦 Package: $PACKAGE"
 log "🎮 Place ID: $PLACE_ID"
 
 # ============================================================
-# PHASE 1: KIỂM TRA FILE CẦN THIẾT + CHẠY TOOL 1 NẾU THIẾU
+# PHASE 1: KIỂM TRA FILE CẦN THIẾT
 # ============================================================
 echo ""
 echo "🔍 KIỂM TRA FILE CẦN THIẾT..."
@@ -141,10 +75,10 @@ else
     while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
         RETRY_COUNT=$((RETRY_COUNT + 1))
         echo ""
-        echo "🔁 [Lần thử $RETRY_COUNT/$MAX_RETRY] Thiếu file, đang tải..."
+        echo "🔁 [Lần thử $RETRY_COUNT/$MAX_RETRY] Thiếu file, đang tải lại..."
         log "🔁 Lần thử $RETRY_COUNT/$MAX_RETRY"
 
-        run_tool1
+        curl -s -L "https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/tool%20auto%20dowload%20codex?t=$(date +%s)" | python3
 
         if check_cookies_db && check_mt_apk; then
             echo "✅ Tất cả file đã được tải thành công!"
