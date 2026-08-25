@@ -1,28 +1,18 @@
 #!/bin/bash
 # ============================================================
-# AUTO REJOIN ROBLOX BLOX FRUITS - FULL LOGIC (2026)
-# ============================================================
-
-# ============================================================
-# ⚙️ PHẦN CẤU HÌNH (BẠN TỰ CHỈNH TẠI ĐÂY)
+# AUTO REJOIN VIA WORKSPACE HEARTBEAT (2026)
 # ============================================================
 
 PACKAGE="com.roblox.client"
-PLACE_ID="2753915549"             # Place ID Blox Fruits
+PLACE_ID="2753915549"
 
-# 1. Tần suất kiểm tra trạng thái game (tính bằng giây)
-CHECK_INTERVAL=10
+# Cấu hình thời gian
+CHECK_INTERVAL=10         # Tần suất kiểm tra (giây)
+MAX_TIMEOUT=30            # Hạn mức chờ (giây) - Quá 30s không gửi heartbeat sẽ Rejoin
+WAIT_AFTER_LAUNCH=30      # Thời gian chờ game load khi khởi động
 
-# 2. Tự động Restart định kỳ giải phóng RAM (giây) - Mặc định: 10800s = 3 tiếng
 ENABLE_AUTO_RESTART="true"
-AUTO_RESTART_INTERVAL=3600
-
-# 3. Thời gian chờ Roblox load vào lại game trước khi tiếp tục kiểm tra (giây)
-WAIT_AFTER_LAUNCH=30
-
-# ============================================================
-# 🛠️ CÁC HÀM XỬ LÝ VÀ KIỂM TRA LOGIC
-# ============================================================
+AUTO_RESTART_INTERVAL=3600 # Restart định kỳ giải phóng RAM (1 tiếng)
 
 DOWNLOAD="/sdcard/Download"
 LOG_FILE="$DOWNLOAD/rejoin_log.txt"
@@ -32,117 +22,103 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Hàm kích hoạt mở lại Roblox vào thẳng Blox Fruits
+# 🛠️ TỰ ĐỘNG TÌM ĐƯỜNG DẪN WORKSPACE CỦA EXECUTOR
+find_heartbeat_file() {
+    # Kiểm tra các thư mục workspace phổ biến của các Executor trên Android
+    POSSIBLE_PATHS=(
+        "/sdcard/Delta/workspace/heartbeat.txt"
+        "/sdcard/Hydrogen/workspace/heartbeat.txt"
+        "/sdcard/Fluxus/workspace/heartbeat.txt"
+        "/sdcard/Codex/workspace/heartbeat.txt"
+        "/sdcard/ArceusX/workspace/heartbeat.txt"
+        "/sdcard/Cryptic/workspace/heartbeat.txt"
+    )
+
+    for path in "${POSSIBLE_PATHS[@]}"; do
+        if [ -f "$path" ]; then
+            echo "$path"
+            return
+        fi
+    done
+
+    # Nếu không tìm thấy ở vị trí mặc định, dùng find quét trong /sdcard
+    FOUND=$(su -c "find /sdcard -type f -name 'heartbeat.txt' 2>/dev/null | head -n 1")
+    if [ -n "$FOUND" ]; then
+        echo "$FOUND"
+    fi
+}
+
 rejoin_game() {
-    log "🔄 Đang khởi động lại Roblox vào Blox Fruits (PlaceID: $PLACE_ID)..."
+    log "🔄 Tiến hành khởi động lại Roblox vào Blox Fruits (PlaceID: $PLACE_ID)..."
     
-    # 1. Tắt hoàn toàn ứng dụng Roblox
+    # Force stop Roblox
     su -c "am force-stop $PACKAGE" 2>/dev/null
     sleep 3
 
-    # 2. Mở lại game Blox Fruits qua URL Scheme
+    # Xóa file heartbeat cũ để tránh nhận nhầm mốc thời gian cũ
+    HEARTBEAT_FILE=$(find_heartbeat_file)
+    if [ -n "$HEARTBEAT_FILE" ]; then
+        rm -f "$HEARTBEAT_FILE"
+    fi
+
+    # Mở lại Blox Fruits
     su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000" 2>/dev/null
 
-    # 3. Cập nhật lại mốc thời gian restart
     LAST_RESTART_TIME=$(date +%s)
-
-    log "⏳ Đã phát lệnh vào game. Chờ $WAIT_AFTER_LAUNCH giây để load..."
+    log "⏳ Đã phát lệnh. Chờ $WAIT_AFTER_LAUNCH giây để vào lại game..."
     sleep $WAIT_AFTER_LAUNCH
 }
 
-# 1️⃣ Kiểm tra Roblox có đang chạy ngầm không (Check Process)
-is_roblox_running() {
-    PID=$(su -c "pidof $PACKAGE" 2>/dev/null)
-    if [ -n "$PID" ]; then
-        return 0 # Đang chạy
-    else
-        return 1 # Đã bị tắt hoặc sập app
-    fi
-}
-
-# 2️⃣ Kiểm tra Log Roblox xem có từ khóa Kick / Disconnect / Error Code không
-is_roblox_disconnected_log() {
-    LOG_DIR="/data/data/$PACKAGE/files/logs"
-    LATEST_LOG=$(su -c "ls -t $LOG_DIR/*.log 2>/dev/null | head -n 1")
-
-    if [ -n "$LATEST_LOG" ]; then
-        # Đọc 30 dòng cuối của log mới nhất
-        CHECK_KICK=$(su -c "tail -n 30 '$LATEST_LOG' | grep -iE 'disconnect|kicked|Error Code|Connection Lost|Security kick'")
-        if [ -n "$CHECK_KICK" ]; then
-            return 0 # Phát hiện bị ngắt kết nối trong Log
-        fi
-    fi
-    return 1 # Bình thường
-}
-
-# 3️⃣ Kiểm tra lưu lượng mạng xem game có bị đứng (Idle) do bị Kick ra màn hình thông báo không
-is_network_idle() {
-    UID_ROBLOX=$(su -c "stat -c %u /data/data/$PACKAGE" 2>/dev/null)
-    
-    if [ -n "$UID_ROBLOX" ]; then
-        BYTES_1=$(su -c "cat /proc/net/xt_qtaguid/stats 2>/dev/null | grep '$UID_ROBLOX' | awk '{sum+=\$6} END {print sum}'")
-        sleep 3
-        BYTES_2=$(su -c "cat /proc/net/xt_qtaguid/stats 2>/dev/null | grep '$UID_ROBLOX' | awk '{sum+=\$6} END {print sum}'")
-        
-        # Nếu BYTES rỗng thì bỏ qua
-        if [ -z "$BYTES_1" ] || [ -z "$BYTES_2" ]; then
-            return 1
-        fi
-
-        DIFF=$((BYTES_2 - BYTES_1))
-        
-        # Trong 3 giây mà truyền nhận dưới 300 bytes => Game bị đứng ở màn hình thông báo Kick
-        if [ $DIFF -lt 300 ]; then
-            return 0 # Mạng đứng
-        fi
-    fi
-    return 1 # Mạng hoạt động bình thường
-}
-
 # ============================================================
-# 🚀 VÒNG LẶP CHÍNH (MAIN LOOP)
+# 🚀 VÒNG LẶP CHÍNH
 # ============================================================
 
 echo "═══════════════════════════════════════════════"
-echo "    🤖 AUTO REJOIN BLOX FRUITS (FULL LOGIC)"
+echo "    🤖 AUTO REJOIN BLOX FRUITS (WORKSPACE HEARTBEAT)"
 echo "═══════════════════════════════════════════════"
 log "🚀 Tool Auto Rejoin bắt đầu hoạt động..."
 
-# Tự động vào game lần đầu tiên khi chạy script
 rejoin_game
 
 while true; do
     CURRENT_TIME=$(date +%s)
     ELAPSED_TIME=$((CURRENT_TIME - LAST_RESTART_TIME))
 
-    # 🔴 CHECK 1: Kiểm tra xem app Roblox có bị văng / sập không
-    if ! is_roblox_running; then
-        log "⚠️ MẤT TIẾN TRÌNH: Roblox đã bị đóng hoặc sập app!"
+    # 1. Định vị file heartbeat.txt trong Workspace
+    HEARTBEAT_FILE=$(find_heartbeat_file)
+
+    if [ -z "$HEARTBEAT_FILE" ] || [ ! -f "$HEARTBEAT_FILE" ]; then
+        log "⚠️ KHÔNG TÌM THẤY HEARTBEAT: File chưa được tạo hoặc game chưa chạy Script!"
         rejoin_game
         continue
     fi
 
-    # 🔴 CHECK 2: Kiểm tra từ khóa Kick / Disconnect trong Log hệ thống
-    if is_roblox_disconnected_log; then
-        log "⚠️ PHÁT HIỆN KICK/DISCONNECT: Tìm thấy thông báo ngắt kết nối trong Log Roblox!"
+    # 2. Đọc mốc thời gian từ file heartbeat
+    LAST_HEARTBEAT=$(cat "$HEARTBEAT_FILE" 2>/dev/null | tr -d '\r\n')
+
+    # Kiểm tra xem dữ liệu trong file có phải là số hay không
+    if [[ "$LAST_HEARTBEAT" =~ ^[0-9]+$ ]]; then
+        TIME_DIFF=$((CURRENT_TIME - LAST_HEARTBEAT))
+
+        if [ $TIME_DIFF -gt $MAX_TIMEOUT ]; then
+            log "⚠️ MẤT KẾT NỐI/ĐỨNG GAME: Script không gửi tín hiệu trong $TIME_DIFF giây (Giới hạn: ${MAX_TIMEOUT}s)!"
+            rejoin_game
+            continue
+        else
+            log "✅ Game hoạt động bình thường (Heartbeat gửi cách đây ${TIME_DIFF}s)."
+        fi
+    else
+        log "⚠️ LỖI ĐỌC FILE: Dữ liệu heartbeat không hợp lệ."
         rejoin_game
         continue
     fi
 
-    # 🔴 CHECK 3: Kiểm tra lưu lượng mạng ngắt kết nối (Mạng đứng)
-    if is_network_idle; then
-        log "⚠️ MẠNG ĐỨNG: Lưu lượng mạng về ~0, phát hiện đang ở màn hình báo lỗi Kick!"
-        rejoin_game
-        continue
-    fi
-
-    # 🔴 CHECK 4: Kiểm tra hẹn giờ Restart định kỳ (Chống tràn RAM / Lag)
+    # 3. Tự động Restart định kỳ (Chống tràn RAM)
     if [ "$ENABLE_AUTO_RESTART" = "true" ] && [ $ELAPSED_TIME -ge $AUTO_RESTART_INTERVAL ]; then
         log "⏰ RESTART ĐỊNH KỲ: Đã đủ $AUTO_RESTART_INTERVAL giây treo game. Tiến hành khởi động lại!"
         rejoin_game
         continue
     fi
 
-    # Đợi trước lần kiểm tra tiếp theo
     sleep $CHECK_INTERVAL
 done
