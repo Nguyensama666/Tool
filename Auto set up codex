@@ -19,6 +19,7 @@ PLACE_ID="2753915549"
 COOKIE_FILE_NAME="cookie.txt"
 SCRIPT_1="yumy.txt"
 SCRIPT_2="maru.txt"
+SCRIPT_3="checkonline.txt"
 WAIT_PACKAGE_CHECK=5
 WAIT_RESTART=5
 WAIT_GAME_LOAD=5
@@ -276,6 +277,12 @@ if [ -f "$DOWNLOAD/$SCRIPT_2" ]; then
     log "✅ Đã copy $SCRIPT_2"
 else
     log "⚠️ Không tìm thấy $SCRIPT_2"
+fi
+if [ -f "$DOWNLOAD/$SCRIPT_3" ]; then
+    cp "$DOWNLOAD/$SCRIPT_3" "$CODEX_AUTOEXEC/"
+    log "✅ Đã copy $SCRIPT_3"
+else
+    log "⚠️ Không tìm thấy $SCRIPT_3"
 fi
 
 log "✅ Đã hoàn tất copy script!"
