@@ -244,22 +244,7 @@ else
 fi
 
 log "✅ Đã chạy tool Cookie Login!"
-sleep 5
-
-# ============================================================
-# PHASE 5: RESTART ROBLOX + VÀO GAME + COPY SCRIPT
-# ============================================================
-log "[5/5] Restart Roblox, vào game và copy script..."
-
-log "🔴 Tắt Roblox..."
-su -c "am force-stop $PACKAGE"
-sleep $WAIT_RESTART
-
-log "🔄 Mở lại Roblox vào game..."
-su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000"
-
-log "⏳ Chờ $WAIT_GAME_LOAD giây để game load..."
-sleep $WAIT_GAME_LOAD
+sleep 3
 
 log "📁 Copy script vào Codex/Autoexec..."
 
