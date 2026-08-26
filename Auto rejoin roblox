@@ -1,38 +1,92 @@
 #!/bin/bash
 # ============================================================
-# AUTO REJOIN VIA ARCEUS X WORKSPACE HEARTBEAT
+# AUTO REJOIN VIA ARCEUS X WORKSPACE HEARTBEAT (WITH DISCORD WEBHOOK)
 # ============================================================
 
 PACKAGE="com.roblox.client"
 PLACE_ID="2753915549"
 
+# Cấu hình Discord Webhook
+WEBHOOK_URL="https://discord.com/api/webhooks/1529852143140339794/nR8HRF7GASiTclTcq1s_PU-LybE4VOvXEXMgt_hZSCx1i7pPFKjAlbMFkWcPkWdyhHXQ"
+DEVICE_NAME="Device-$((RANDOM % 9000 + 1000))" # Tên máy ngẫu nhiên dạng Device-1234
+
 # Đường dẫn Workspace chính xác của Arceus X
 HEARTBEAT_FILE="/storage/emulated/0/Arceus X/workspace/heartbeat.txt"
 
 # Cấu hình thời gian
-CHECK_INTERVAL=10         # Tần suất kiểm tra (giây)
-MAX_TIMEOUT=80            # Quá 30s không gửi heartbeat sẽ Rejoin
-WAIT_AFTER_LAUNCH=90      # Thời gian chờ game load khi khởi động
+CHECK_INTERVAL=10          # Tần suất kiểm tra (giây)
+MAX_TIMEOUT=80             # Quá 80s không gửi heartbeat sẽ Rejoin
+WAIT_AFTER_LAUNCH=90       # Thời gian chờ game load khi khởi động
 
 ENABLE_AUTO_RESTART="true"
 AUTO_RESTART_INTERVAL=3600 # Restart định kỳ giải phóng RAM (1 tiếng)
 
 DOWNLOAD="/sdcard/Download"
 LOG_FILE="$DOWNLOAD/rejoin_log.txt"
+SCREENSHOT_PATH="$DOWNLOAD/screen_capture.png"
 LAST_RESTART_TIME=$(date +%s)
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# Hàm gửi thông báo Embed dạng Text tới Discord
+send_discord_webhook() {
+    local title="$1"
+    local message="$2"
+    local color="$3" # Mã màu Hex dạng decimal (ví dụ: Red=16711680, Green=65280, Yellow=16776960)
+
+    su -c "curl -H 'Content-Type: application/json' -X POST -d '{
+        \"username\": \"Roblox Auto Rejoiner\",
+        \"embeds\": [{
+            \"title\": \"$title\",
+            \"description\": \"$message\",
+            \"color\": $color,
+            \"fields\": [
+                {\"name\": \"Tên máy\", \"value\": \"\`$DEVICE_NAME\`\", \"inline\": true},
+                {\"name\": \"Place ID\", \"value\": \"\`$PLACE_ID\`\", \"inline\": true}
+            ],
+            \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"
+        }]
+    }' '$WEBHOOK_URL'" >/dev/null 2>&1 &
+}
+
+# Hàm chạy ngầm chụp và gửi màn hình sau 5 phút (300 giây)
+capture_screen_after_delay() {
+    (
+        sleep 300
+        log "📸 Tiến hành chụp màn hình sau 5 phút..."
+        
+        # Chụp màn hình bằng Android screencap (yêu cầu root)
+        su -c "screencap -p $SCREENSHOT_PATH" 2>/dev/null
+
+        if [ -f "$SCREENSHOT_PATH" ]; then
+            # Gửi file ảnh qua cURL multipart/form-data
+            su -c "curl -X POST '$WEBHOOK_URL' \
+                -F 'payload_json={\"content\": \"📸 **[ MÀN HÌNH SAU 5 PHÚT ]** - Máy: \`$DEVICE_NAME\`\"}' \
+                -F 'file=@$SCREENSHOT_PATH'" >/dev/null 2>&1
+            
+            # Xóa ảnh tạm sau khi gửi xong
+            rm -f "$SCREENSHOT_PATH" 2>/dev/null
+            log "✅ Đã gửi screenshot lên Discord thành công."
+        else
+            log "❌ Không thể chụp ảnh màn hình."
+        fi
+    ) &
+}
+
 rejoin_game() {
-    log "🔄 Tiến hành khởi động lại Roblox vào Blox Fruits (PlaceID: $PLACE_ID)..."
+    local reason="$1"
+    log "🔄 Tiến hành khởi động lại Roblox vào Blox Fruits (PlaceID: $PLACE_ID)... Lý do: $reason"
     
+    # Gửi Webhook báo Rejoin
+    send_discord_webhook "🔄 Tiến hành Rejoin Game" "Lý do: **$reason**" 16711680 # Red Color
+
     # Force stop Roblox
     su -c "am force-stop $PACKAGE" 2>/dev/null
     sleep 3
 
-    # Xóa file heartbeat cũ để tránh nhận nhầm thời gian cũ
+    # Xóa file heartbeat cũ
     rm -f "$HEARTBEAT_FILE" 2>/dev/null
 
     # Mở lại Blox Fruits
@@ -40,6 +94,10 @@ rejoin_game() {
 
     LAST_RESTART_TIME=$(date +%s)
     log "⏳ Đã phát lệnh. Chờ $WAIT_AFTER_LAUNCH giây để vào lại game..."
+    
+    # Kích hoạt đếm ngược 5 phút chụp màn hình (chạy song song)
+    capture_screen_after_delay
+    
     sleep $WAIT_AFTER_LAUNCH
 }
 
@@ -49,10 +107,14 @@ rejoin_game() {
 
 echo "═══════════════════════════════════════════════"
 echo "    🤖 AUTO REJOIN BLOX FRUITS (ARCEUS X)"
+echo "    🆔 Máy: $DEVICE_NAME"
 echo "═══════════════════════════════════════════════"
-log "🚀 Tool Auto Rejoin bắt đầu hoạt động..."
+log "🚀 Tool Auto Rejoin bắt đầu hoạt động trên $DEVICE_NAME..."
 
-rejoin_game
+# Gửi thông báo khởi động tool
+send_discord_webhook "🚀 Tool Auto Rejoin đã khởi động" "Bắt đầu giám sát game trên thiết bị." 65280 # Green Color
+
+rejoin_game "Khởi động ban đầu"
 
 while true; do
     CURRENT_TIME=$(date +%s)
@@ -61,7 +123,7 @@ while true; do
     # 1. Kiểm tra xem file heartbeat có tồn tại không
     if [ ! -f "$HEARTBEAT_FILE" ]; then
         log "⚠️ KHÔNG TÌM THẤY HEARTBEAT: Game/Script chưa tạo file heartbeat.txt!"
-        rejoin_game
+        rejoin_game "Không tìm thấy file heartbeat.txt"
         continue
     fi
 
@@ -74,21 +136,21 @@ while true; do
 
         if [ $TIME_DIFF -gt $MAX_TIMEOUT ]; then
             log "⚠️ MẤT KẾT NỐI/DISCONNECT: Arceus X ngừng gửi tín hiệu ${TIME_DIFF}s (Quá giới hạn ${MAX_TIMEOUT}s)!"
-            rejoin_game
+            rejoin_game "Mất kết nối Heartbeat (${TIME_DIFF}s > ${MAX_TIMEOUT}s)"
             continue
         else
             log "✅ Game bình thường (Heartbeat gửi cách đây ${TIME_DIFF}s)."
         fi
     else
         log "⚠️ LỖI ĐỌC FILE: Dữ liệu heartbeat không hợp lệ."
-        rejoin_game
+        rejoin_game "Dữ liệu heartbeat bị lỗi/không hợp lệ"
         continue
     fi
 
     # 3. Tự động Restart định kỳ (Chống tràn RAM / Lag)
     if [ "$ENABLE_AUTO_RESTART" = "true" ] && [ $ELAPSED_TIME -ge $AUTO_RESTART_INTERVAL ]; then
         log "⏰ RESTART ĐỊNH KỲ: Đã đủ $AUTO_RESTART_INTERVAL giây treo game. Tiến hành khởi động lại!"
-        rejoin_game
+        rejoin_game "Restart định kỳ giải phóng RAM ($AUTO_RESTART_INTERVAL giây)"
         continue
     fi
 
