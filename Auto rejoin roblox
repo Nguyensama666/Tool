@@ -220,8 +220,17 @@ read_json_data() {
     ACCESSORIES=$(jq -r '.Accessories[]?' "$json_file" 2>/dev/null)
     MATERIALS=$(jq -r '.Materials[]?' "$json_file" 2>/dev/null)
     
+    # ============ THÊM PHẦN ĐỌC MELEE ============
+    MELEE=$(jq -r '.Melee[]?' "$json_file" 2>/dev/null)
+    
+    # ============ CHECK GODHUMAN TRONG MELEE ============
     HAS_GODHUMAN="false"
+    # Check trong Swords trước
     if echo "$SWORDS" | grep -qi "godhuman" || echo "$SWORDS" | grep -qi "god human"; then
+        HAS_GODHUMAN="true"
+    fi
+    # Check trong Melee (QUAN TRỌNG)
+    if echo "$MELEE" | grep -qi "godhuman" || echo "$MELEE" | grep -qi "god human"; then
         HAS_GODHUMAN="true"
     fi
     
@@ -249,6 +258,14 @@ read_json_data() {
     if echo "$MATERIALS" | grep -q "Mirror Fractal"; then
         HAS_MIRROR_FRACTAL="true"
     fi
+    
+    # Debug log
+    log "📊 Dữ liệu đọc được:"
+    log "   USERNAME: $USERNAME"
+    log "   BELI: $BELI"
+    log "   LEVEL: $LEVEL"
+    log "   MELEE: $MELEE"
+    log "   HAS_GODHUMAN: $HAS_GODHUMAN"
     
     return 0
 }
