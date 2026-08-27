@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ==========================================
-#    ROBLOX COOKIE INJECTOR (STANDALONE 2026)
+#   ROBLOX COOKIE INJECTOR (FIXED 2026)
 # ==========================================
 
 GREEN='\033[0;32m'
@@ -11,10 +11,10 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}=========================================="
-echo "    ROBLOX COOKIE INJECTOR (DIRECT BUILD)"
+echo "    ROBLOX COOKIE INJECTOR"
 echo -e "==========================================${NC}"
 
-# 1. Hàm trích xuất Cookie từ chuỗi dán vào
+# 1. Trích xuất Cookie
 extract_cookie() {
     local line="$1"
     if [[ "$line" =~ ^[^:]+:[^:]+:(.+)$ ]]; then
@@ -32,14 +32,13 @@ extract_cookie() {
     return 1
 }
 
-# 2. Kiểm tra sự tồn tại của file cookie.txt
-COOKIE_FILE="/sdcard/Download/cookie.txt"
-if [ ! -f "$COOKIE_FILE" ]; then
-    echo -e "${RED}❌ Không tìm thấy $COOKIE_FILE!${NC}"
+# 2. Kiểm tra file cookie.txt
+if [ ! -f "/sdcard/Download/cookie.txt" ]; then
+    echo -e "${RED}❌ Không tìm thấy /sdcard/Download/cookie.txt!${NC}"
     exit 1
 fi
 
-RAW_COOKIE=$(cat "$COOKIE_FILE" | tr -d '\n\r')
+RAW_COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
 COOKIE=$(extract_cookie "$RAW_COOKIE")
 
 if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
@@ -49,68 +48,57 @@ fi
 
 echo -e "${GREEN}✅ Cookie hợp lệ: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
 
-# 3. Dừng ứng dụng & Chuẩn bị thư mục đích
-echo -e "${YELLOW}📋 Đang dừng Roblox và làm sạch dữ liệu cũ...${NC}"
+# 3. Chuẩn bị ứng dụng & thư mục
+echo -e "${YELLOW}📋 Đang dừng Roblox và khởi tạo dữ liệu...${NC}"
 su -c "am force-stop com.roblox.client" 2>/dev/null
-su -c "killall -9 com.roblox.client" 2>/dev/null
 sleep 2
 
-TARGET_DIR="/data/data/com.roblox.client/app_webview/Default"
-su -c "mkdir -p $TARGET_DIR" 2>/dev/null
+su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
 
-# Xóa triệt để các file Database và Journal/WAL cũ để tránh xung đột checksum
-su -c "rm -f $TARGET_DIR/Cookies*" 2>/dev/null
+# 4. Xử lý Database SQLite
+TARGET_DB="/sdcard/Download/Cookies.db"
+rm -f "$TARGET_DB"
 
-# 4. Tự tạo Database SQLite trực tiếp trong bộ nhớ tạm (Không cần file Cookies.db trước)
-TMP_DB="/data/local/tmp/Cookies"
-rm -f "$TMP_DB"
+# Tạo bảng cookies & meta chuẩn WebView Chromium
+sqlite3 "$TARGET_DB" "CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);"
+sqlite3 "$TARGET_DB" "INSERT INTO meta (key, value) VALUES ('version', '14'), ('last_compatible_version', '14');"
 
-echo -e "${YELLOW}🛠️ Đang khởi tạo Database SQLite trực tiếp...${NC}"
+sqlite3 "$TARGET_DB" "CREATE TABLE cookies (creation_utc INTEGER NOT NULL, host_key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, path TEXT NOT NULL, expires_utc INTEGER NOT NULL, is_secure INTEGER NOT NULL, is_httponly INTEGER NOT NULL, last_access_utc INTEGER NOT NULL, has_expires INTEGER NOT NULL DEFAULT 1, is_persistent INTEGER NOT NULL DEFAULT 1, priority INTEGER NOT NULL DEFAULT 1, encrypted_value BLOB DEFAULT '', samesite INTEGER NOT NULL DEFAULT -1, source_scheme INTEGER NOT NULL DEFAULT 0, source_port INTEGER NOT NULL DEFAULT -1, is_same_party INTEGER NOT NULL DEFAULT 0, UNIQUE (host_key, name, path));"
 
-# Tạo bảng meta và bảng cookies chuẩn Chromium WebView
-sqlite3 "$TMP_DB" "CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);"
-sqlite3 "$TMP_DB" "INSERT INTO meta (key, value) VALUES ('version', '14'), ('last_compatible_version', '14');"
+chmod 666 "$TARGET_DB" 2>/dev/null
 
-sqlite3 "$TMP_DB" "CREATE TABLE cookies (creation_utc INTEGER NOT NULL, host_key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, path TEXT NOT NULL, expires_utc INTEGER NOT NULL, is_secure INTEGER NOT NULL, is_httponly INTEGER NOT NULL, last_access_utc INTEGER NOT NULL, has_expires INTEGER NOT NULL DEFAULT 1, is_persistent INTEGER NOT NULL DEFAULT 1, priority INTEGER NOT NULL DEFAULT 1, encrypted_value BLOB DEFAULT '', samesite INTEGER NOT NULL DEFAULT -1, source_scheme INTEGER NOT NULL DEFAULT 0, source_port INTEGER NOT NULL DEFAULT -1, is_same_party INTEGER NOT NULL DEFAULT 0, UNIQUE (host_key, name, path));"
-
-chmod 666 "$TMP_DB" 2>/dev/null
-
-# Tính mốc thời gian Chromium Epoch Microseconds
-SECS=$(date +%s)
-NOW_TIME=$(( (SECS + 11644473600) * 1000000 ))
-EXPIRE_TIME=$(( NOW_TIME + 315360000000000 )) # +10 năm
+# Tính thời gian Epoch Microseconds (Chromium format)
+NOW_TIME=$(($(date +%s) * 1000000 + 11644473600000000))
+EXPIRE_TIME=$(($NOW_TIME + 3153600000000000)) # Thời hạn +10 năm
 
 ESCAPED=$(echo "$COOKIE" | sed "s/'/''/g")
 
-# Chèn dữ liệu Cookie trực tiếp vào file SQLite tạm
-sqlite3 "$TMP_DB" "INSERT INTO cookies (creation_utc, host_key, name, value, path, expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, encrypted_value, samesite, source_scheme, source_port, is_same_party) VALUES (${NOW_TIME}, '.roblox.com', '.ROBLOSECURITY', '${ESCAPED}', '/', ${EXPIRE_TIME}, 1, 1, ${NOW_TIME}, 1, 1, 1, '', -1, 0, -1, 0);" 2>/dev/null
+sqlite3 "$TARGET_DB" "INSERT INTO cookies (creation_utc, host_key, name, value, path, expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, encrypted_value, samesite, source_scheme, source_port, is_same_party) VALUES (${NOW_TIME}, '.roblox.com', '.ROBLOSECURITY', '${ESCAPED}', '/', ${EXPIRE_TIME}, 1, 1, ${NOW_TIME}, 1, 1, 1, '', -1, 0, -1, 0);" 2>/dev/null
 
-# Đổi mode sang DELETE để hủy bỏ việc tạo WAL file gây xung đột
-sqlite3 "$TMP_DB" "PRAGMA journal_mode=DELETE;" 2>/dev/null
+# 5. Ghi đè vào dữ liệu ứng dụng
+echo "📋 Copy Database vào Roblox..."
 
-# 5. Ghi đè vào ứng dụng và Phân quyền hệ thống
-echo "📋 Đang sao chép Database vào ứng dụng..."
+# Lấy UID/GID thực tế của ứng dụng
+R_UID=$(su -c "stat -c '%u' /data/data/com.roblox.client/app_webview/Default" 2>/dev/null)
+R_GID=$(su -c "stat -c '%g' /data/data/com.roblox.client/app_webview/Default" 2>/dev/null)
 
-# Lấy UID/GID thực tế của thư mục ứng dụng
-R_UID=$(su -c "stat -c '%u' $TARGET_DIR" 2>/dev/null)
-R_GID=$(su -c "stat -c '%g' $TARGET_DIR" 2>/dev/null)
-
-if [ -z "$R_UID" ] || [ "$R_UID" -eq 0 ]; then
+if [ -z "$R_UID" ]; then
     R_UID="10105"
     R_GID="10105"
 fi
 
-su -c "cp $TMP_DB $TARGET_DIR/Cookies" 2>/dev/null
-su -c "chown ${R_UID}:${R_GID} $TARGET_DIR/Cookies" 2>/dev/null
-su -c "chmod 660 $TARGET_DIR/Cookies" 2>/dev/null
+su -c "cp /sdcard/Download/Cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chown ${R_UID}:${R_GID} /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
+su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
+su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-wal" 2>/dev/null
 
-# Dọn dẹp file tạm
-rm -f "$TMP_DB"
+rm -f "$TARGET_DB"
 
 echo -e "${GREEN}=========================================="
-echo "✅ ĐÃ KÍCH HOẠT VÀ INJECT COOKIE THÀNH CÔNG!"
+echo "✅ ĐÃ INJECT COOKIE THÀNH CÔNG!"
 echo -e "==========================================${NC}"
 
-# 6. Mở ứng dụng Roblox
+# 6. Mở Roblox
 echo -e "${YELLOW}🚀 Đang mở Roblox...${NC}"
 su -c "monkey -p com.roblox.client -c android.intent.category.LAUNCHER 1" 2>/dev/null
