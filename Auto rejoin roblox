@@ -1,9 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ============================================================
-#   🚀 AUTO FARM + CHECK & CHANGE ACCOUNT
-#   Kết hợp Rejoin + Check Item + Change Acc
-#   Chạy 1 lần duy nhất - Tự động xử lý mọi thứ
+#   TOOL AUTO CHECK - ĐỌC TÊN TỪ WORKSPACE
+#   Đọc tên nhân vật từ character_name.txt
+#   Tìm file JSON có tên đó để check
 # ============================================================
 
 GREEN='\033[0;32m'
@@ -11,23 +11,18 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-PURPLE='\033[0;35m'
 NC='\033[0m'
 
 # ============================================================
-#   📋 CẤU HÌNH (CHỈNH SỬA Ở ĐÂY)
+#   CẤU HÌNH
 # ============================================================
 
-# --- Cấu hình Rejoin ---
-PACKAGE="com.roblox.client"
-PLACE_ID="2753915549"
-CHECK_INTERVAL=10
-MAX_TIMEOUT=80
-WAIT_AFTER_LAUNCH=90
-ENABLE_AUTO_RESTART="true"
-AUTO_RESTART_INTERVAL=7200  # 2 giờ
+WORKSPACE_DIR="/storage/emulated/0/Arceus X/workspace"
+CHARACTER_FILE="$WORKSPACE_DIR/character_name.txt"
+HEARTBEAT_FILE="$WORKSPACE_DIR/heartbeat.txt"
+LOG_FILE="/sdcard/Download/check_log.txt"
 
-# --- Cấu hình Check Item (true/false) ---
+# Cấu hình check item
 CHECK_BELI="true"
 CHECK_LEVEL="true"
 CHECK_GODHUMAN="true"
@@ -36,59 +31,74 @@ CHECK_TUSHITA="true"
 CHECK_YAMA="true"
 CHECK_VALKYRIE="true"
 CHECK_MIRROR_FRACTAL="true"
-CHECK_CDK="true"
 
-# --- Ngưỡng yêu cầu ---
-MIN_BELI=5000000        # Beli tối thiểu
-MIN_LEVEL=2800          # Level tối thiểu
-
-# --- Tự động change khi đủ điều kiện ---
+MIN_BELI=500000
+MIN_LEVEL=2800
 AUTO_CHANGE_WHEN_DONE="true"
 
-# --- Discord Webhook (tùy chọn) ---
-WEBHOOK_URL="https://discord.com/api/webhooks/1529852143140339794/nR8HRF7GASiTclTcq1s_PU-LybE4VOvXEXMgt_hZSCx1i7pPFKjAlbMFkWcPkWdyhHXQ"
-DEVICE_NAME="Device-$((RANDOM % 9000 + 1000))"
-
-# --- Đường dẫn ---
-WORKSPACE_DIR="/storage/emulated/0/Arceus X/workspace"
-HEARTBEAT_FILE="$WORKSPACE_DIR/heartbeat.txt"
-LOG_FILE="/sdcard/Download/auto_farm_log.txt"
-COOKIE_FILE="/sdcard/Download/cookie.txt"
-
 # ============================================================
-#   LOG & DISCORD
+#   LOG
 # ============================================================
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-send_discord() {
-    local message="$1"
-    local color="$2"
-    
-    if [ -n "$WEBHOOK_URL" ] && [ "$WEBHOOK_URL" != "null" ]; then
-        curl -s -H "Content-Type: application/json" -X POST -d "{
-            \"username\": \"Auto Farm Blox Fruit\",
-            \"embeds\": [{
-                \"description\": \"$message\",
-                \"color\": ${color:-65280},
-                \"fields\": [
-                    {\"name\": \"Tên máy\", \"value\": \"\`$DEVICE_NAME\`\", \"inline\": true}
-                ],
-                \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"
-            }]
-        }" "$WEBHOOK_URL" >/dev/null 2>&1 &
+# ============================================================
+#   LẤY TÊN NHÂN VẬT ĐANG CÀY
+# ============================================================
+
+get_current_character() {
+    if [ -f "$CHARACTER_FILE" ]; then
+        cat "$CHARACTER_FILE" 2>/dev/null | tr -d '\n\r'
+    else
+        echo ""
     fi
 }
 
 # ============================================================
-#   LẤY FILE JSON MỚI NHẤT
+#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ
 # ============================================================
 
-get_latest_json() {
-    local json_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
-    echo "$json_file"
+find_character_json() {
+    local character_name="$1"
+    
+    if [ -z "$character_name" ]; then
+        return 1
+    fi
+    
+    # Cách 1: Tìm file JSON có tên trong đó
+    local found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -exec grep -l "\"$character_name\"" {} \; 2>/dev/null | head -1)
+    
+    if [ -n "$found_file" ] && [ -f "$found_file" ]; then
+        echo "$found_file"
+        return 0
+    fi
+    
+    # Cách 2: Tìm file có tên chứa tên nhân vật
+    found_file=$(find "$WORKSPACE_DIR" -name "*${character_name}*.json" -type f 2>/dev/null | head -1)
+    
+    if [ -n "$found_file" ] && [ -f "$found_file" ]; then
+        echo "$found_file"
+        return 0
+    fi
+    
+    # Cách 3: Lấy file JSON mới nhất (fallback)
+    found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+    
+    if [ -n "$found_file" ] && [ -f "$found_file" ]; then
+        # Kiểm tra file có được tạo gần đây không
+        local file_time=$(stat -c %Y "$found_file" 2>/dev/null)
+        local current_time=$(date +%s)
+        local time_diff=$((current_time - file_time))
+        
+        if [ $time_diff -lt 300 ]; then  # Trong 5 phút
+            echo "$found_file"
+            return 0
+        fi
+    fi
+    
+    return 1
 }
 
 # ============================================================
@@ -102,6 +112,7 @@ read_json_data() {
         return 1
     fi
     
+    # Đọc các giá trị
     USERNAME=$(jq -r '.Username // "Unknown"' "$json_file" 2>/dev/null)
     BELI=$(jq -r '.Beli // 0' "$json_file" 2>/dev/null | sed 's/,//g')
     LEVEL=$(jq -r '.Level // 0' "$json_file" 2>/dev/null | sed 's/,//g')
@@ -109,6 +120,7 @@ read_json_data() {
     RACE=$(jq -r '.Race // "Unknown"' "$json_file" 2>/dev/null)
     BOUNTY=$(jq -r '.Bounty_Honor // 0' "$json_file" 2>/dev/null | sed 's/,//g')
     
+    # Đọc mảng items
     SWORDS=$(jq -r '.Swords[]?' "$json_file" 2>/dev/null)
     ACCESSORIES=$(jq -r '.Accessories[]?' "$json_file" 2>/dev/null)
     FRUITS=$(jq -r '.Fruits[]?' "$json_file" 2>/dev/null)
@@ -143,11 +155,6 @@ read_json_data() {
     HAS_MIRROR_FRACTAL="false"
     if echo "$MATERIALS" | grep -q "Mirror Fractal"; then
         HAS_MIRROR_FRACTAL="true"
-    fi
-    
-    HAS_CDK="false"
-    if echo "$SWORDS" | grep -q "CDK"; then
-        HAS_CDK="true"
     fi
     
     return 0
@@ -251,104 +258,92 @@ check_conditions() {
         fi
     fi
     
-    # Check CDK
-    if [ "$CHECK_CDK" = "true" ]; then
-        if [ "$HAS_CDK" = "true" ]; then
-            result+="🗡️ CDK: ✅ CÓ\n"
-        else
-            result+="🗡️ CDK: ❌ KHÔNG CÓ\n"
-            all_passed=false
-        fi
-    fi
-    
     result+="\n"
     if [ "$all_passed" = true ]; then
         result+="🎉 KẾT LUẬN: ACCOUNT ĐẠT YÊU CẦU!\n"
         result+="════════════════════════════════════════════\n"
         echo -e "$result"
-        send_discord "$result" 65280
         return 0
     else
         result+="❌ KẾT LUẬN: ACCOUNT CHƯA ĐẠT YÊU CẦU!\n"
         result+="════════════════════════════════════════════\n"
         echo -e "$result"
-        send_discord "$result" 16711680
         return 1
     fi
 }
 
 # ============================================================
-#   CHANGE ACCOUNT (DÙNG TOOL LOGIN COOKIE)
+#   CHANGE ACCOUNT
 # ============================================================
 
 change_account() {
-    log "🔄 Đang đổi account..."
-    send_discord "🔄 Đang đổi account: $USERNAME" 16711680
+    log "🔄 Đang đổi account: $USERNAME"
     
-    # Dừng game
-    su -c "am force-stop $PACKAGE" 2>/dev/null
+    su -c "am force-stop com.roblox.client" 2>/dev/null
     sleep 3
     
     # Gọi tool login cookie
-    log "📥 Đang tải và chạy tool change account..."
     bash <(curl -s https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/Cookie%20login?$(date +%s))
     
-    # Xóa file JSON cũ
-    find "$WORKSPACE_DIR" -name "*_bf.json" -type f -mmin -5 -delete 2>/dev/null
-    rm -f "$HEARTBEAT_FILE" 2>/dev/null
+    # Xóa file character_name.txt để chờ session mới
+    rm -f "$CHARACTER_FILE" 2>/dev/null
     
-    log "⏳ Chờ 60 giây để game load..."
+    log "⏳ Chờ 60 giây..."
     sleep 60
-    
-    send_discord "✅ Đã đổi account thành công!" 65280
 }
 
 # ============================================================
-#   REJOIN GAME
+#   REJOIN
 # ============================================================
 
 rejoin_game() {
-    local reason="$1"
-    log "🔄 Rejoin: $reason"
+    log "🔄 Rejoin game..."
     
-    send_discord "🔄 Rejoin Game - Lý do: $reason" 16711680
-    
-    su -c "am force-stop $PACKAGE" 2>/dev/null
+    su -c "am force-stop com.roblox.client" 2>/dev/null
     sleep 3
     
-    rm -f "$HEARTBEAT_FILE" 2>/dev/null
+    su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=2753915549' -f 0x10008000" 2>/dev/null
     
-    su -c "am start -a android.intent.action.VIEW -d 'roblox://placeId=$PLACE_ID' -f 0x10008000" 2>/dev/null
-    
-    LAST_RESTART_TIME=$(date +%s)
-    log "⏳ Chờ $WAIT_AFTER_LAUNCH giây để vào game..."
-    sleep $WAIT_AFTER_LAUNCH
+    sleep 90
 }
 
 # ============================================================
-#   CHECK ACCOUNT TỪ WORKSPACE
+#   CHECK ACCOUNT
 # ============================================================
 
 check_account() {
-    log "🔍 Đang kiểm tra account..."
+    log "🔍 Đang kiểm tra..."
     
-    local JSON_FILE=$(get_latest_json)
+    # 1. Lấy tên nhân vật đang cày
+    local CHARACTER_NAME=$(get_current_character)
     
-    if [ -z "$JSON_FILE" ] || [ ! -f "$JSON_FILE" ]; then
-        log "❌ Không tìm thấy file JSON trong workspace!"
+    if [ -z "$CHARACTER_NAME" ]; then
+        log "❌ Không tìm thấy tên nhân vật trong workspace!"
         return 1
     fi
     
-    log "📁 File: $(basename "$JSON_FILE")"
+    log "👤 Nhân vật đang cày: $CHARACTER_NAME"
     
+    # 2. Tìm file JSON của nhân vật đó
+    local JSON_FILE=$(find_character_json "$CHARACTER_NAME")
+    
+    if [ -z "$JSON_FILE" ] || [ ! -f "$JSON_FILE" ]; then
+        log "❌ Không tìm thấy file JSON cho nhân vật: $CHARACTER_NAME"
+        return 1
+    fi
+    
+    log "📁 File JSON: $(basename "$JSON_FILE")"
+    
+    # 3. Đọc dữ liệu
     if ! read_json_data "$JSON_FILE"; then
         log "❌ Lỗi đọc file JSON!"
         return 1
     fi
     
+    # 4. Hiển thị kết quả
     echo ""
     echo -e "${CYAN}════════════════════════════════════════════${NC}"
-    echo -e "${PURPLE}📊 THÔNG TIN ACCOUNT${NC}"
+    echo -e "${GREEN}📊 THÔNG TIN ACCOUNT${NC}"
     echo -e "${CYAN}════════════════════════════════════════════${NC}"
     echo -e "${GREEN}👤 Username:${NC} $USERNAME"
     echo -e "${GREEN}💰 Beli:${NC} $BELI"
@@ -360,10 +355,10 @@ check_account() {
     echo -e "${GREEN}🗡️ Yama:${NC} $HAS_YAMA"
     echo -e "${GREEN}🎩 Valkyrie:${NC} $HAS_VALKYRIE"
     echo -e "${GREEN}🪞 Mirror Fractal:${NC} $HAS_MIRROR_FRACTAL"
-    echo -e "${GREEN}🗡️ CDK:${NC} $HAS_CDK"
     echo -e "${CYAN}════════════════════════════════════════════${NC}"
     echo ""
     
+    # 5. Check điều kiện
     if check_conditions; then
         log "✅ Account đạt yêu cầu!"
         return 0
@@ -374,85 +369,50 @@ check_account() {
 }
 
 # ============================================================
-#   🚀 MAIN - VÒNG LẶP CHÍNH
+#   🚀 MAIN
 # ============================================================
 
 echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
-echo -e "${PURPLE}    🤖 AUTO FARM + CHECK & CHANGE ACCOUNT${NC}"
+echo -e "${GREEN}    🤖 AUTO CHECK + CHANGE ACCOUNT${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
-echo -e "${GREEN}    🆔 Máy: $DEVICE_NAME${NC}"
-echo -e "${GREEN}    📋 Place ID: $PLACE_ID${NC}"
-echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
-echo ""
 
-log "🚀 Tool Auto Farm bắt đầu hoạt động trên $DEVICE_NAME..."
-send_discord "🚀 Tool Auto Farm đã khởi động" 65280
+log "🚀 Tool bắt đầu..."
 
-# Hiển thị cấu hình
-log "📋 Cấu hình check:"
-log "   Beli >= $MIN_BELI: $CHECK_BELI"
-log "   Level >= $MIN_LEVEL: $CHECK_LEVEL"
-log "   Godhuman: $CHECK_GODHUMAN"
-log "   Cursed Dual Katana: $CHECK_CURSED_DUAL"
-log "   Tushita: $CHECK_TUSHITA"
-log "   Yama: $CHECK_YAMA"
-log "   Valkyrie Helm: $CHECK_VALKYRIE"
-log "   Mirror Fractal: $CHECK_MIRROR_FRACTAL"
-log "   CDK: $CHECK_CDK"
-
-# Khởi động game lần đầu
-rejoin_game "Khởi động ban đầu"
-
-# Vòng lặp chính
 while true; do
-    CURRENT_TIME=$(date +%s)
-    ELAPSED_TIME=$((CURRENT_TIME - LAST_RESTART_TIME))
-    
     # Kiểm tra heartbeat
     if [ ! -f "$HEARTBEAT_FILE" ]; then
-        log "⚠️ KHÔNG TÌM THẤY HEARTBEAT!"
-        rejoin_game "Không tìm thấy heartbeat.txt"
+        log "⚠️ Không tìm thấy heartbeat! Rejoin..."
+        rejoin_game
         continue
     fi
     
-    LAST_HEARTBEAT=$(cat "$HEARTBEAT_FILE" 2>/dev/null | tr -d '\r\n')
+    LAST_HEARTBEAT=$(cat "$HEARTBEAT_FILE" 2>/dev/null | tr -d '\n\r')
+    CURRENT_TIME=$(date +%s)
     
     if [[ "$LAST_HEARTBEAT" =~ ^[0-9]+$ ]]; then
         TIME_DIFF=$((CURRENT_TIME - LAST_HEARTBEAT))
         
-        if [ $TIME_DIFF -gt $MAX_TIMEOUT ]; then
-            log "⚠️ MẤT KẾT NỐI (${TIME_DIFF}s > ${MAX_TIMEOUT}s)!"
-            rejoin_game "Mất kết nối Heartbeat"
+        if [ $TIME_DIFF -gt 80 ]; then
+            log "⚠️ Mất heartbeat (${TIME_DIFF}s)! Rejoin..."
+            rejoin_game
             continue
-        else
-            log "✅ Heartbeat OK (${TIME_DIFF}s)"
         fi
     else
-        log "⚠️ Heartbeat invalid!"
-        rejoin_game "Heartbeat invalid"
+        log "⚠️ Heartbeat invalid! Rejoin..."
+        rejoin_game
         continue
     fi
     
-    # Restart định kỳ
-    if [ "$ENABLE_AUTO_RESTART" = "true" ] && [ $ELAPSED_TIME -ge $AUTO_RESTART_INTERVAL ]; then
-        log "⏰ Restart định kỳ!"
-        rejoin_game "Restart định kỳ ($AUTO_RESTART_INTERVAL giây)"
-        continue
-    fi
-    
-    # CHECK ACCOUNT (mỗi 2 phút)
+    # Check account mỗi 2 phút
     if [ $((CURRENT_TIME % 120)) -lt 10 ]; then
         if check_account; then
             if [ "$AUTO_CHANGE_WHEN_DONE" = "true" ]; then
-                log "🎯 Account đạt yêu cầu! Tiến hành change acc..."
+                log "🎯 Đủ điều kiện! Change acc..."
                 change_account
-                # Sau khi change, rejoin để tiếp tục
-                rejoin_game "Sau change account"
-            else
-                log "⏳ Account đạt yêu cầu nhưng AUTO_CHANGE_WHEN_DONE=false"
+                rejoin_game
             fi
         fi
     fi
     
-    sleep $CHECK_INTERVAL
+    sleep 10
 done
