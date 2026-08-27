@@ -35,6 +35,8 @@ AUTO_RESTART_INTERVAL=3600
 
 LOG_FILE="/sdcard/Download/auto_farm_log.txt"
 LAST_RESTART_TIME=$(date +%s)
+CAPTURE_PID=""
+LAST_WEBHOOK_TIME=0
 
 # ============================================================
 #   📋 CẤU HÌNH CHECK ITEM
@@ -86,6 +88,40 @@ send_discord_webhook() {
 }
 
 # ============================================================
+#   CHỤP ẢNH SAU 5 PHÚT
+# ============================================================
+
+capture_screen() {
+    # Dọn dẹp tiến trình chụp ảnh cũ
+    if [ -n "$CAPTURE_PID" ] && kill -0 "$CAPTURE_PID" 2>/dev/null; then
+        kill -9 "$CAPTURE_PID" 2>/dev/null
+    fi
+
+    (
+        sleep 300
+        log "📸 Chụp màn hình sau 5 phút..."
+        
+        local TIMESTAMP=$(date +%s)
+        local SHOT_PATH="/data/local/tmp/screen_${TIMESTAMP}.png"
+
+        su -c "screencap -p $SHOT_PATH" 2>/dev/null
+
+        if su -c "test -f $SHOT_PATH"; then
+            su -c "curl -s -X POST '$WEBHOOK_URL' \
+                -F 'payload_json={\"content\": \"📸 **MÀN HÌNH SAU 5 PHÚT** - Máy: \`$DEVICE_NAME\`\"}' \
+                -F 'file=@$SHOT_PATH'" >/dev/null 2>&1
+            
+            su -c "rm -f $SHOT_PATH" 2>/dev/null
+            log "✅ Đã gửi screenshot lên Discord."
+        else
+            log "❌ Không thể chụp ảnh màn hình."
+        fi
+    ) &
+    
+    CAPTURE_PID=$!
+}
+
+# ============================================================
 #   LẤY TÊN NHÂN VẬT ĐANG CÀY
 # ============================================================
 
@@ -110,7 +146,7 @@ get_current_character() {
 }
 
 # ============================================================
-#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ (SỬA LỖI)
+#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ
 # ============================================================
 
 find_character_json() {
@@ -120,13 +156,10 @@ find_character_json() {
         return 1
     fi
     
-    log "🔍 Tìm file JSON cho: $character_name"
-    
-    # Cách 1: Tìm file có tên chứa tên nhân vật (ưu tiên)
+    # Cách 1: Tìm file có tên chứa tên nhân vật
     local found_file=$(find "$WORKSPACE_DIR" -name "*${character_name}*.json" -type f 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
-        log "✅ Tìm thấy file: $(basename "$found_file")"
         echo "$found_file"
         return 0
     fi
@@ -135,7 +168,6 @@ find_character_json() {
     found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -exec grep -l "$character_name" {} \; 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
-        log "✅ Tìm thấy file (nội dung): $(basename "$found_file")"
         echo "$found_file"
         return 0
     fi
@@ -149,18 +181,16 @@ find_character_json() {
         local time_diff=$((current_time - file_time))
         
         if [ $time_diff -lt 300 ]; then
-            log "✅ Tìm thấy file (fallback): $(basename "$found_file")"
             echo "$found_file"
             return 0
         fi
     fi
     
-    log "❌ Không tìm thấy file JSON cho: $character_name"
     return 1
 }
 
 # ============================================================
-#   ĐỌC DỮ LIỆU TỪ JSON (LẤY TÊN TỪ FILENAME NẾU CẦN)
+#   ĐỌC DỮ LIỆU TỪ JSON
 # ============================================================
 
 read_json_data() {
@@ -176,9 +206,7 @@ read_json_data() {
     # Nếu không có Username trong JSON, lấy từ tên file
     if [ -z "$USERNAME" ] || [ "$USERNAME" = "null" ] || [ "$USERNAME" = "Unknown" ]; then
         local filename=$(basename "$json_file" .json)
-        # Loại bỏ _bf nếu có
         USERNAME=$(echo "$filename" | sed 's/_bf$//')
-        log "📝 Lấy username từ filename: $USERNAME"
     fi
     
     BELI=$(jq -r '.Beli // 0' "$json_file" 2>/dev/null | sed 's/,//g')
@@ -319,13 +347,11 @@ check_conditions() {
         result+="🎉 KẾT LUẬN: ACCOUNT ĐẠT YÊU CẦU!\n"
         result+="════════════════════════════════════════════\n"
         echo -e "$result"
-        send_discord_webhook "✅ ACCOUNT ĐẠT YÊU CẦU" "$result" 65280
         return 0
     else
         result+="❌ KẾT LUẬN: ACCOUNT CHƯA ĐẠT YÊU CẦU!\n"
         result+="════════════════════════════════════════════\n"
         echo -e "$result"
-        send_discord_webhook "❌ ACCOUNT CHƯA ĐẠT" "$result" 16711680
         return 1
     fi
 }
@@ -336,7 +362,14 @@ check_conditions() {
 
 change_account() {
     log "🔄 Đang đổi account: $USERNAME"
-    send_discord_webhook "🔄 Đổi account" "Đang đổi từ **$USERNAME** sang account tiếp theo" 16711680
+    
+    # Gửi webhook thông báo change account
+    local msg="🔄 **ĐANG ĐỔI ACCOUNT**\n"
+    msg+="👤 Từ: **$USERNAME**\n"
+    msg+="💰 Beli: $BELI\n"
+    msg+="📈 Level: $LEVEL\n"
+    msg+="⏰ Thời gian: $(date '+%H:%M:%S')"
+    send_discord_webhook "🔄 ĐỔI ACCOUNT" "$msg" 16711680
     
     su -c "am force-stop $PACKAGE" 2>/dev/null
     sleep 3
@@ -348,6 +381,9 @@ change_account() {
     
     log "⏳ Chờ 60 giây để game load..."
     sleep 60
+    
+    # Sau khi change, chụp ảnh
+    capture_screen
 }
 
 # ============================================================
@@ -369,11 +405,15 @@ rejoin_game() {
 
     LAST_RESTART_TIME=$(date +%s)
     log "⏳ Chờ $WAIT_AFTER_LAUNCH giây để vào game..."
+    
+    # Chụp ảnh sau khi rejoin
+    capture_screen
+    
     sleep $WAIT_AFTER_LAUNCH
 }
 
 # ============================================================
-#   CHECK ACCOUNT
+#   CHECK ACCOUNT VÀ GỬI WEBHOOK
 # ============================================================
 
 check_account() {
@@ -419,11 +459,45 @@ check_account() {
     echo -e "${CYAN}════════════════════════════════════════════${NC}"
     echo ""
     
+    # Kiểm tra điều kiện
     if check_conditions; then
         log "✅ Account đạt yêu cầu!"
+        
+        # Gửi webhook thông báo đạt yêu cầu
+        local msg="✅ **ACCOUNT ĐẠT YÊU CẦU!**\n"
+        msg+="👤 Username: **$USERNAME**\n"
+        msg+="💰 Beli: $BELI\n"
+        msg+="📈 Level: $LEVEL\n"
+        msg+="🗡️ Godhuman: $HAS_GODHUMAN\n"
+        msg+="🗡️ Cursed Dual: $HAS_CURSED_DUAL\n"
+        msg+="🗡️ Tushita: $HAS_TUSHITA\n"
+        msg+="🗡️ Yama: $HAS_YAMA\n"
+        msg+="🎩 Valkyrie: $HAS_VALKYRIE\n"
+        msg+="🪞 Mirror Fractal: $HAS_MIRROR_FRACTAL"
+        send_discord_webhook "✅ ĐẠT YÊU CẦU" "$msg" 65280
+        
         return 0
     else
         log "❌ Account chưa đạt yêu cầu!"
+        
+        # Gửi webhook thông báo chưa đạt (mỗi 5 phút)
+        local current_time=$(date +%s)
+        if [ $((current_time - LAST_WEBHOOK_TIME)) -ge 300 ]; then
+            LAST_WEBHOOK_TIME=$current_time
+            
+            local msg="❌ **ACCOUNT CHƯA ĐẠT YÊU CẦU**\n"
+            msg+="👤 Username: **$USERNAME**\n"
+            msg+="💰 Beli: $BELI\n"
+            msg+="📈 Level: $LEVEL\n"
+            msg+="🗡️ Godhuman: $HAS_GODHUMAN\n"
+            msg+="🗡️ Cursed Dual: $HAS_CURSED_DUAL\n"
+            msg+="🗡️ Tushita: $HAS_TUSHITA\n"
+            msg+="🗡️ Yama: $HAS_YAMA\n"
+            msg+="🎩 Valkyrie: $HAS_VALKYRIE\n"
+            msg+="🪞 Mirror Fractal: $HAS_MIRROR_FRACTAL"
+            send_discord_webhook "❌ CHƯA ĐẠT" "$msg" 16711680
+        fi
+        
         return 1
     fi
 }
