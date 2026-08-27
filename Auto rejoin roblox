@@ -110,7 +110,7 @@ get_current_character() {
 }
 
 # ============================================================
-#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ (HỖ TRỢ _bf)
+#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ (SỬA LỖI)
 # ============================================================
 
 find_character_json() {
@@ -122,43 +122,25 @@ find_character_json() {
     
     log "🔍 Tìm file JSON cho: $character_name"
     
-    # Cách 1: Tìm file JSON có tên trong đó (khớp chính xác)
-    local found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -exec grep -l "\"$character_name\"" {} \; 2>/dev/null | head -1)
+    # Cách 1: Tìm file có tên chứa tên nhân vật (ưu tiên)
+    local found_file=$(find "$WORKSPACE_DIR" -name "*${character_name}*.json" -type f 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
-        log "✅ Tìm thấy (cách 1): $(basename "$found_file")"
+        log "✅ Tìm thấy file: $(basename "$found_file")"
         echo "$found_file"
         return 0
     fi
     
-    # Cách 2: Tìm file có tên chứa tên nhân vật (có thể có _bf)
-    found_file=$(find "$WORKSPACE_DIR" -name "*${character_name}*.json" -type f 2>/dev/null | head -1)
+    # Cách 2: Tìm file JSON có tên trong nội dung
+    found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -exec grep -l "$character_name" {} \; 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
-        log "✅ Tìm thấy (cách 2): $(basename "$found_file")"
+        log "✅ Tìm thấy file (nội dung): $(basename "$found_file")"
         echo "$found_file"
         return 0
     fi
     
-    # Cách 3: Tìm file có tên bắt đầu bằng tên nhân vật + _bf
-    found_file=$(find "$WORKSPACE_DIR" -name "${character_name}_bf.json" -type f 2>/dev/null | head -1)
-    
-    if [ -n "$found_file" ] && [ -f "$found_file" ]; then
-        log "✅ Tìm thấy (cách 3): $(basename "$found_file")"
-        echo "$found_file"
-        return 0
-    fi
-    
-    # Cách 4: Tìm file có tên bắt đầu bằng tên nhân vật (bất kỳ)
-    found_file=$(find "$WORKSPACE_DIR" -name "${character_name}*.json" -type f 2>/dev/null | head -1)
-    
-    if [ -n "$found_file" ] && [ -f "$found_file" ]; then
-        log "✅ Tìm thấy (cách 4): $(basename "$found_file")"
-        echo "$found_file"
-        return 0
-    fi
-    
-    # Cách 5: Lấy file JSON mới nhất (fallback)
+    # Cách 3: Tìm file JSON mới nhất (fallback)
     found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
@@ -167,7 +149,7 @@ find_character_json() {
         local time_diff=$((current_time - file_time))
         
         if [ $time_diff -lt 300 ]; then
-            log "✅ Tìm thấy (cách 5 - fallback): $(basename "$found_file")"
+            log "✅ Tìm thấy file (fallback): $(basename "$found_file")"
             echo "$found_file"
             return 0
         fi
