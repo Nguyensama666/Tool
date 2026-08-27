@@ -2,7 +2,7 @@
 
 # ============================================================
 #   🚀 AUTO REJOIN + CHECK & CHANGE ACCOUNT
-#   Kết hợp tool rejoin của bạn + check item từ workspace
+#   Hỗ trợ file JSON có _bf trong tên
 # ============================================================
 
 GREEN='\033[0;32m'
@@ -13,7 +13,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # ============================================================
-#   📋 CẤU HÌNH REJOIN (TỪ TOOL CỦA BẠN)
+#   📋 CẤU HÌNH
 # ============================================================
 
 PACKAGE="com.roblox.client"
@@ -62,7 +62,7 @@ log() {
 }
 
 # ============================================================
-#   DISCORD WEBHOOK (TỪ TOOL CỦA BẠN)
+#   DISCORD WEBHOOK
 # ============================================================
 
 send_discord_webhook() {
@@ -95,7 +95,6 @@ get_current_character() {
         return 1
     fi
     
-    # Kiểm tra file có được tạo trong 2 phút gần đây không
     local file_time=$(stat -c %Y "$CHARACTER_FILE" 2>/dev/null)
     local current_time=$(date +%s)
     local time_diff=$((current_time - file_time))
@@ -111,7 +110,7 @@ get_current_character() {
 }
 
 # ============================================================
-#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ
+#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ (HỖ TRỢ _bf)
 # ============================================================
 
 find_character_json() {
@@ -121,23 +120,45 @@ find_character_json() {
         return 1
     fi
     
-    # Cách 1: Tìm file JSON có tên trong đó
+    log "🔍 Tìm file JSON cho: $character_name"
+    
+    # Cách 1: Tìm file JSON có tên trong đó (khớp chính xác)
     local found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -exec grep -l "\"$character_name\"" {} \; 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
+        log "✅ Tìm thấy (cách 1): $(basename "$found_file")"
         echo "$found_file"
         return 0
     fi
     
-    # Cách 2: Tìm file có tên chứa tên nhân vật
+    # Cách 2: Tìm file có tên chứa tên nhân vật (có thể có _bf)
     found_file=$(find "$WORKSPACE_DIR" -name "*${character_name}*.json" -type f 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
+        log "✅ Tìm thấy (cách 2): $(basename "$found_file")"
         echo "$found_file"
         return 0
     fi
     
-    # Cách 3: Lấy file JSON mới nhất (fallback)
+    # Cách 3: Tìm file có tên bắt đầu bằng tên nhân vật + _bf
+    found_file=$(find "$WORKSPACE_DIR" -name "${character_name}_bf.json" -type f 2>/dev/null | head -1)
+    
+    if [ -n "$found_file" ] && [ -f "$found_file" ]; then
+        log "✅ Tìm thấy (cách 3): $(basename "$found_file")"
+        echo "$found_file"
+        return 0
+    fi
+    
+    # Cách 4: Tìm file có tên bắt đầu bằng tên nhân vật (bất kỳ)
+    found_file=$(find "$WORKSPACE_DIR" -name "${character_name}*.json" -type f 2>/dev/null | head -1)
+    
+    if [ -n "$found_file" ] && [ -f "$found_file" ]; then
+        log "✅ Tìm thấy (cách 4): $(basename "$found_file")"
+        echo "$found_file"
+        return 0
+    fi
+    
+    # Cách 5: Lấy file JSON mới nhất (fallback)
     found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
@@ -146,16 +167,18 @@ find_character_json() {
         local time_diff=$((current_time - file_time))
         
         if [ $time_diff -lt 300 ]; then
+            log "✅ Tìm thấy (cách 5 - fallback): $(basename "$found_file")"
             echo "$found_file"
             return 0
         fi
     fi
     
+    log "❌ Không tìm thấy file JSON cho: $character_name"
     return 1
 }
 
 # ============================================================
-#   ĐỌC DỮ LIỆU TỪ JSON
+#   ĐỌC DỮ LIỆU TỪ JSON (LẤY TÊN TỪ FILENAME NẾU CẦN)
 # ============================================================
 
 read_json_data() {
@@ -165,7 +188,17 @@ read_json_data() {
         return 1
     fi
     
-    USERNAME=$(jq -r '.Username // "Unknown"' "$json_file" 2>/dev/null)
+    # Thử lấy Username từ JSON trước
+    USERNAME=$(jq -r '.Username // ""' "$json_file" 2>/dev/null)
+    
+    # Nếu không có Username trong JSON, lấy từ tên file
+    if [ -z "$USERNAME" ] || [ "$USERNAME" = "null" ] || [ "$USERNAME" = "Unknown" ]; then
+        local filename=$(basename "$json_file" .json)
+        # Loại bỏ _bf nếu có
+        USERNAME=$(echo "$filename" | sed 's/_bf$//')
+        log "📝 Lấy username từ filename: $USERNAME"
+    fi
+    
     BELI=$(jq -r '.Beli // 0' "$json_file" 2>/dev/null | sed 's/,//g')
     LEVEL=$(jq -r '.Level // 0' "$json_file" 2>/dev/null | sed 's/,//g')
     FRAGMENTS=$(jq -r '.Fragments // 0' "$json_file" 2>/dev/null | sed 's/,//g')
@@ -316,7 +349,7 @@ check_conditions() {
 }
 
 # ============================================================
-#   CHANGE ACCOUNT (DÙNG TOOL LOGIN COOKIE)
+#   CHANGE ACCOUNT
 # ============================================================
 
 change_account() {
@@ -336,7 +369,7 @@ change_account() {
 }
 
 # ============================================================
-#   REJOIN GAME (TỪ TOOL CỦA BẠN)
+#   REJOIN GAME
 # ============================================================
 
 rejoin_game() {
@@ -427,7 +460,6 @@ echo ""
 
 log "🚀 Tool bắt đầu hoạt động trên $DEVICE_NAME..."
 log "📋 Config: Beli >= $MIN_BELI, Level >= $MIN_LEVEL"
-log "📋 Check: Godhuman=$CHECK_GODHUMAN, Cursed Dual=$CHECK_CURSED_DUAL, Tushita=$CHECK_TUSHITA, Yama=$CHECK_YAMA, Valkyrie=$CHECK_VALKYRIE"
 
 send_discord_webhook "🚀 Tool Auto Farm khởi động" "Đang giám sát game trên thiết bị." 65280
 
