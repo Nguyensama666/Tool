@@ -1,3 +1,4 @@
+pkg install jq -y
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ============================================================
