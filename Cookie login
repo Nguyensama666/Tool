@@ -1,81 +1,198 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ==========================================
-#   ROBLOX COOKIE INJECTOR (FIXED 2026)
+#   ROBLOX COOKIE INJECTOR (MULTI-COOKIE)
+#   Hỗ trợ: cookie | user:pass:cookie | user:cookie
 # ==========================================
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 echo -e "${BLUE}=========================================="
 echo "    ROBLOX COOKIE INJECTOR"
+echo "  (Hỗ trợ user:pass:cookie format)"
 echo -e "==========================================${NC}"
 
-# 1. Trích xuất Cookie
+# 1. Hàm trích xuất Cookie từ chuỗi (hỗ trợ nhiều định dạng)
 extract_cookie() {
     local line="$1"
+    # Loại bỏ khoảng trắng đầu cuối
+    line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    
+    # Định dạng 1: user:pass:cookie hoặc user:cookie
     if [[ "$line" =~ ^[^:]+:[^:]+:(.+)$ ]]; then
+        # user:pass:cookie - lấy phần sau dấu : thứ 2
         echo "${BASH_REMATCH[1]}"
         return 0
     fi
-    if [[ "$line" =~ ^_\|WARNING ]]; then
+    
+    # Định dạng 2: user:cookie (chỉ 1 dấu :)
+    if [[ "$line" =~ ^[^:]+:(.+)$ ]]; then
+        # user:cookie - lấy phần sau dấu :
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    
+    # Định dạng 3: Chỉ cookie (không có dấu :)
+    if [[ ${#line} -gt 100 ]] || [[ "$line" =~ ^_\|WARNING ]]; then
         echo "$line"
         return 0
     fi
-    if [[ ${#line} -gt 100 ]]; then
-        echo "$line"
-        return 0
-    fi
+    
     return 1
 }
 
-# 2. Kiểm tra file cookie.txt
+# 2. Hàm trích xuất Username (nếu có)
+extract_username() {
+    local line="$1"
+    line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    
+    # user:pass:cookie
+    if [[ "$line" =~ ^([^:]+):[^:]+:.+$ ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    
+    # user:cookie
+    if [[ "$line" =~ ^([^:]+):.+$ ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    
+    # Chỉ cookie - không có username
+    echo ""
+    return 1
+}
+
+# 3. Kiểm tra file cookie.txt
 if [ ! -f "/sdcard/Download/cookie.txt" ]; then
     echo -e "${RED}❌ Không tìm thấy /sdcard/Download/cookie.txt!${NC}"
+    echo -e "${YELLOW}📝 Định dạng hỗ trợ:${NC}"
+    echo -e "   • Chỉ cookie: _|WARNING:-DO-NOT-SHARE..."
+    echo -e "   • user:cookie: username:_|WARNING:-DO-NOT-SHARE..."
+    echo -e "   • user:pass:cookie: username:password:_|WARNING:-DO-NOT-SHARE..."
     exit 1
 fi
 
-RAW_COOKIE=$(cat /sdcard/Download/cookie.txt | tr -d '\n\r')
-COOKIE=$(extract_cookie "$RAW_COOKIE")
+# 4. Đọc tất cả dòng từ file cookie.txt
+mapfile -t ALL_LINES < /sdcard/Download/cookie.txt
 
-if [ -z "$COOKIE" ] || [ ${#COOKIE} -lt 100 ]; then
-    echo -e "${RED}❌ Cookie không hợp lệ (quá ngắn)!${NC}"
+# Lọc và xử lý từng dòng
+VALID_ENTRIES=()
+for line in "${ALL_LINES[@]}"; do
+    # Bỏ qua dòng trống
+    if [[ -z "$(echo "$line" | tr -d ' \t\n\r')" ]]; then
+        continue
+    fi
+    
+    # Trích xuất cookie
+    COOKIE=$(extract_cookie "$line")
+    if [[ -n "$COOKIE" ]] && [[ ${#COOKIE} -gt 100 ]]; then
+        # Lấy username (nếu có)
+        USERNAME=$(extract_username "$line")
+        
+        # Lưu cả dòng gốc để xử lý sau
+        VALID_ENTRIES+=("$line")
+    fi
+done
+
+if [ ${#VALID_ENTRIES[@]} -eq 0 ]; then
+    echo -e "${RED}❌ Không tìm thấy cookie hợp lệ trong cookie.txt!${NC}"
+    echo -e "${YELLOW}💡 Cookie phải dài > 100 ký tự hoặc bắt đầu bằng _|WARNING${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Cookie hợp lệ: ${COOKIE:0:30}... (${#COOKIE} chars)${NC}"
+echo -e "${GREEN}✅ Tìm thấy ${#VALID_ENTRIES[@]} cookie(s) hợp lệ${NC}"
 
-# 3. Chuẩn bị ứng dụng & thư mục
+# 5. Lấy entry đầu tiên
+SELECTED_LINE="${VALID_ENTRIES[0]}"
+SELECTED_COOKIE=$(extract_cookie "$SELECTED_LINE")
+SELECTED_USER=$(extract_username "$SELECTED_LINE")
+
+# Hiển thị thông tin
+if [[ -n "$SELECTED_USER" ]]; then
+    echo -e "${CYAN}👤 Username: ${SELECTED_USER}${NC}"
+else
+    echo -e "${CYAN}👤 Không có username (cookie ẩn danh)${NC}"
+fi
+echo -e "${CYAN}🔑 Cookie: ${SELECTED_COOKIE:0:30}... (${#SELECTED_COOKIE} chars)${NC}"
+
+# 6. Xóa entry đã chọn khỏi danh sách
+REMAINING_ENTRIES=()
+for i in "${!VALID_ENTRIES[@]}"; do
+    if [ $i -ne 0 ]; then
+        REMAINING_ENTRIES+=("${VALID_ENTRIES[$i]}")
+    fi
+done
+
+# 7. Ghi lại các entry còn lại vào cookie.txt
+if [ ${#REMAINING_ENTRIES[@]} -gt 0 ]; then
+    printf "%s\n" "${REMAINING_ENTRIES[@]}" > /sdcard/Download/cookie.txt
+    echo -e "${GREEN}✅ Đã xóa cookie đã dùng. Còn ${#REMAINING_ENTRIES[@]} cookie(s) trong file.${NC}"
+    
+    # Hiển thị preview của cookie tiếp theo
+    NEXT_PREVIEW=$(extract_cookie "${REMAINING_ENTRIES[0]}")
+    NEXT_USER=$(extract_username "${REMAINING_ENTRIES[0]}")
+    if [[ -n "$NEXT_USER" ]]; then
+        echo -e "${CYAN}📋 Cookie tiếp theo: ${NEXT_USER} - ${NEXT_PREVIEW:0:20}...${NC}"
+    else
+        echo -e "${CYAN}📋 Cookie tiếp theo: ${NEXT_PREVIEW:0:20}...${NC}"
+    fi
+else
+    # Nếu không còn cookie nào, xóa file hoặc để trống
+    > /sdcard/Download/cookie.txt
+    echo -e "${YELLOW}⚠️ Đã dùng hết cookie! File cookie.txt đã được làm trống.${NC}"
+fi
+
+# 8. Chuẩn bị ứng dụng & thư mục
 echo -e "${YELLOW}📋 Đang dừng Roblox và khởi tạo dữ liệu...${NC}"
 su -c "am force-stop com.roblox.client" 2>/dev/null
 sleep 2
 
 su -c "mkdir -p /data/data/com.roblox.client/app_webview/Default" 2>/dev/null
 
-# 4. Xử lý Database SQLite
+# 9. Xử lý Database SQLite (KIỂM TRA NẾU ĐÃ TỒN TẠI)
 TARGET_DB="/sdcard/Download/Cookies.db"
-rm -f "$TARGET_DB"
 
-# Tạo bảng cookies & meta chuẩn WebView Chromium
-sqlite3 "$TARGET_DB" "CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);"
-sqlite3 "$TARGET_DB" "INSERT INTO meta (key, value) VALUES ('version', '14'), ('last_compatible_version', '14');"
-
-sqlite3 "$TARGET_DB" "CREATE TABLE cookies (creation_utc INTEGER NOT NULL, host_key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, path TEXT NOT NULL, expires_utc INTEGER NOT NULL, is_secure INTEGER NOT NULL, is_httponly INTEGER NOT NULL, last_access_utc INTEGER NOT NULL, has_expires INTEGER NOT NULL DEFAULT 1, is_persistent INTEGER NOT NULL DEFAULT 1, priority INTEGER NOT NULL DEFAULT 1, encrypted_value BLOB DEFAULT '', samesite INTEGER NOT NULL DEFAULT -1, source_scheme INTEGER NOT NULL DEFAULT 0, source_port INTEGER NOT NULL DEFAULT -1, is_same_party INTEGER NOT NULL DEFAULT 0, UNIQUE (host_key, name, path));"
+if [ ! -f "$TARGET_DB" ]; then
+    echo -e "${YELLOW}📝 Tạo Cookies.db mới...${NC}"
+    
+    # Tạo bảng cookies & meta chuẩn WebView Chromium
+    sqlite3 "$TARGET_DB" "CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR);"
+    sqlite3 "$TARGET_DB" "INSERT INTO meta (key, value) VALUES ('version', '14'), ('last_compatible_version', '14');"
+    
+    sqlite3 "$TARGET_DB" "CREATE TABLE cookies (creation_utc INTEGER NOT NULL, host_key TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, path TEXT NOT NULL, expires_utc INTEGER NOT NULL, is_secure INTEGER NOT NULL, is_httponly INTEGER NOT NULL, last_access_utc INTEGER NOT NULL, has_expires INTEGER NOT NULL DEFAULT 1, is_persistent INTEGER NOT NULL DEFAULT 1, priority INTEGER NOT NULL DEFAULT 1, encrypted_value BLOB DEFAULT '', samesite INTEGER NOT NULL DEFAULT -1, source_scheme INTEGER NOT NULL DEFAULT 0, source_port INTEGER NOT NULL DEFAULT -1, is_same_party INTEGER NOT NULL DEFAULT 0, UNIQUE (host_key, name, path));"
+    
+    echo -e "${GREEN}✅ Đã tạo Cookies.db mới${NC}"
+else
+    echo -e "${GREEN}📁 Sử dụng Cookies.db đã có${NC}"
+    
+    # Xóa cookie cũ trong database (nếu có)
+    sqlite3 "$TARGET_DB" "DELETE FROM cookies WHERE host_key='.roblox.com' AND name='.ROBLOSECURITY';" 2>/dev/null
+fi
 
 chmod 666 "$TARGET_DB" 2>/dev/null
 
-# Tính thời gian Epoch Microseconds (Chromium format)
+# 10. Thêm cookie mới vào database
 NOW_TIME=$(($(date +%s) * 1000000 + 11644473600000000))
 EXPIRE_TIME=$(($NOW_TIME + 3153600000000000)) # Thời hạn +10 năm
 
-ESCAPED=$(echo "$COOKIE" | sed "s/'/''/g")
+ESCAPED=$(echo "$SELECTED_COOKIE" | sed "s/'/''/g")
 
 sqlite3 "$TARGET_DB" "INSERT INTO cookies (creation_utc, host_key, name, value, path, expires_utc, is_secure, is_httponly, last_access_utc, has_expires, is_persistent, priority, encrypted_value, samesite, source_scheme, source_port, is_same_party) VALUES (${NOW_TIME}, '.roblox.com', '.ROBLOSECURITY', '${ESCAPED}', '/', ${EXPIRE_TIME}, 1, 1, ${NOW_TIME}, 1, 1, 1, '', -1, 0, -1, 0);" 2>/dev/null
 
-# 5. Ghi đè vào dữ liệu ứng dụng
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ Đã thêm cookie vào database${NC}"
+else
+    echo -e "${RED}❌ Lỗi khi thêm cookie vào database${NC}"
+    exit 1
+fi
+
+# 11. Ghi đè vào dữ liệu ứng dụng
 echo "📋 Copy Database vào Roblox..."
 
 # Lấy UID/GID thực tế của ứng dụng
@@ -87,18 +204,29 @@ if [ -z "$R_UID" ]; then
     R_GID="10105"
 fi
 
+# Copy database và set quyền
 su -c "cp /sdcard/Download/Cookies.db /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
 su -c "chown ${R_UID}:${R_GID} /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
 su -c "chmod 660 /data/data/com.roblox.client/app_webview/Default/Cookies" 2>/dev/null
 su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-journal" 2>/dev/null
 su -c "rm -f /data/data/com.roblox.client/app_webview/Default/Cookies-wal" 2>/dev/null
 
-rm -f "$TARGET_DB"
+# KHÔNG XÓA Cookies.db (giữ lại để dùng lần sau)
+# rm -f "$TARGET_DB"  # ĐÃ COMMENT
+
+# 12. Hiển thị thông tin tổng kết
+REMAINING_COUNT=$(grep -c '[^[:space:]]' /sdcard/Download/cookie.txt 2>/dev/null || echo "0")
 
 echo -e "${GREEN}=========================================="
 echo "✅ ĐÃ INJECT COOKIE THÀNH CÔNG!"
+if [[ -n "$SELECTED_USER" ]]; then
+    echo -e "👤 Đã inject cho: ${SELECTED_USER}"
+fi
+echo "📁 Cookies.db đã được giữ tại /sdcard/Download/"
+echo -e "📋 Còn ${REMAINING_COUNT} cookie(s) trong file"
+echo "🔄 Chạy lại script để inject cookie tiếp theo"
 echo -e "==========================================${NC}"
 
-# 6. Mở Roblox
+# 13. Mở Roblox
 echo -e "${YELLOW}🚀 Đang mở Roblox...${NC}"
 su -c "monkey -p com.roblox.client -c android.intent.category.LAUNCHER 1" 2>/dev/null
