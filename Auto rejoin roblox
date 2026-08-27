@@ -40,7 +40,7 @@ CHECK_CDK="true"
 
 # --- Ngưỡng yêu cầu ---
 MIN_BELI=5000000        # Beli tối thiểu
-MIN_LEVEL=2500          # Level tối thiểu
+MIN_LEVEL=2800          # Level tối thiểu
 
 # --- Tự động change khi đủ điều kiện ---
 AUTO_CHANGE_WHEN_DONE="true"
