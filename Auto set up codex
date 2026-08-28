@@ -194,83 +194,40 @@ echo "✅ Package đã sẵn sàng! Tiếp tục setup..."
 echo ""
 
 # ============================================================
-# PHASE 3: NHẬP COOKIE TRỰC TIẾP (HỖ TRỢ NHIỀU COOKIE)
+# PHASE 3: NHẬP COOKIE (ĐƠN GIẢN - DÁN NHIỀU CŨNG ĐƯỢC)
 # ============================================================
 echo ""
 echo "═══════════════════════════════════════════════"
-echo "    🍪 DÁN COOKIE VÀO ĐÂY (NHIỀU DÒNG)"
+echo "    🍪 NHẬP COOKIE"
 echo "═══════════════════════════════════════════════"
 echo ""
-echo "📝 Hãy dán danh sách cookie vào dưới đây, mỗi dòng 1 cookie:"
-echo "   (Ví dụ:)"
-echo "   _|WARNING:-DO-NOT-SHARE... (cookie 1)"
-echo "   _|WARNING:-DO-NOT-SHARE... (cookie 2)"
-echo "   _|WARNING:-DO-NOT-SHARE... (cookie 3)"
+echo "📝 Dán danh sách cookie vào đây:"
+echo "   (Mỗi dòng 1 cookie, dán bao nhiêu cũng được)"
 echo ""
-echo "👉 Sau khi dán xong, nhấn Enter và sau đó nhấn Ctrl+D để kết thúc"
+echo "👉 Sau khi dán xong, nhấn Ctrl+D để lưu"
 echo ""
 
-log "[3/5] CHỜ NHẬP DANH SÁCH COOKIE..."
+log "[3/5] CHỜ NHẬP COOKIE..."
 
-# Tạo file tạm để lưu nhiều dòng
-TEMP_COOKIE_FILE="/tmp/cookies_temp.txt"
-rm -f "$TEMP_COOKIE_FILE"
+# Đọc trực tiếp từ bàn phím vào cookie.txt
+cat > "$COOKIE_FILE"
 
-# Đọc nhiều dòng cho đến khi người dùng nhấn Ctrl+D
-cat > "$TEMP_COOKIE_FILE"
-
-# Đếm số dòng có nội dung (bỏ qua dòng trống)
-COOKIE_COUNT=$(grep -c '[^[:space:]]' "$TEMP_COOKIE_FILE" 2>/dev/null)
-
-if [ $COOKIE_COUNT -eq 0 ]; then
+# Kiểm tra file có dữ liệu không
+if [ ! -s "$COOKIE_FILE" ]; then
     echo ""
     echo "❌ Bạn chưa nhập cookie nào!"
     log "❌ Không có cookie nào được nhập"
-    rm -f "$TEMP_COOKIE_FILE"
     exit 1
 fi
 
 echo ""
-echo "✅ Đã nhận $COOKIE_COUNT cookie(s)!"
-log "✅ Đã nhận $COOKIE_COUNT cookie(s)"
+echo "✅ Đã lưu cookie vào: $COOKIE_FILE"
+log "✅ Đã lưu cookie vào $COOKIE_FILE"
 
-# Đọc file tạm và ghi vào cookie.txt (mỗi dòng 1 cookie)
-> "$COOKIE_FILE"  # Xóa nội dung cũ
-
-# Lọc và ghi các dòng không trống
-grep -v '^[[:space:]]*$' "$TEMP_COOKIE_FILE" > "$COOKIE_FILE"
-
-# Đếm số cookie hợp lệ (dài > 50 ký tự)
-VALID_COOKIE_COUNT=0
-while IFS= read -r line; do
-    COOKIE_LEN=$(echo -n "$line" | wc -c)
-    if [ $COOKIE_LEN -gt 50 ]; then
-        VALID_COOKIE_COUNT=$((VALID_COOKIE_COUNT + 1))
-    fi
-done < "$COOKIE_FILE"
-
+# Hiển thị số dòng đã nhập (không đếm dòng trống)
+TOTAL_LINES=$(grep -c '[^[:space:]]' "$COOKIE_FILE" 2>/dev/null)
+echo "📊 Đã nhập $TOTAL_LINES cookie(s)"
 echo ""
-echo "📊 Kết quả:"
-echo "   📝 Tổng số cookie đã nhập: $COOKIE_COUNT"
-echo "   ✅ Số cookie hợp lệ (dài > 50 ký tự): $VALID_COOKIE_COUNT"
-echo "   📁 Lưu tại: $COOKIE_FILE"
-
-if [ $VALID_COOKIE_COUNT -eq 0 ]; then
-    echo ""
-    echo "❌ Không có cookie hợp lệ nào!"
-    log "❌ Không có cookie hợp lệ"
-    rm -f "$TEMP_COOKIE_FILE"
-    exit 1
-fi
-
-rm -f "$TEMP_COOKIE_FILE"
-
-# Hiển thị preview cookie đầu tiên
-FIRST_COOKIE=$(head -1 "$COOKIE_FILE" | cut -c1-50)
-echo "   👀 Preview cookie đầu: ${FIRST_COOKIE}..."
-echo ""
-
-log "📁 Đã lưu $VALID_COOKIE_COUNT cookie vào $COOKIE_FILE"
 # ============================================================
 # PHASE 4: CHẠY TOOL COOKIE LOGIN
 # ============================================================
