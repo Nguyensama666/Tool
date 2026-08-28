@@ -194,40 +194,76 @@ echo "✅ Package đã sẵn sàng! Tiếp tục setup..."
 echo ""
 
 # ============================================================
-# PHASE 3: NHẬP COOKIE (ĐƠN GIẢN - DÁN NHIỀU CŨNG ĐƯỢC)
+# PHASE 3: NHẬP COOKIE TRỰC TIẾP (HỖ TRỢ NHIỀU COOKIE)
 # ============================================================
 echo ""
 echo "═══════════════════════════════════════════════"
-echo "    🍪 NHẬP COOKIE"
+echo "    🍪 DÁN COOKIE VÀO ĐÂY"
 echo "═══════════════════════════════════════════════"
 echo ""
-echo "📝 Dán danh sách cookie vào đây:"
-echo "   (Mỗi dòng 1 cookie, dán bao nhiêu cũng được)"
+echo "📝 Hướng dẫn:"
+echo "   - Dán tất cả cookie vào đây (có thể nhiều dòng)"
+echo "   - Cookie sẽ tự động được tách riêng"
+echo "   - Nhấn Enter và Ctrl+D để kết thúc (hoặc Enter 2 lần)"
 echo ""
-echo "👉 Sau khi dán xong, nhấn Ctrl+D để lưu"
+
+log "[3/5] CHỜ NHẬP COOKIE TRỰC TIẾP..."
+
+# Xóa file cũ
+> "$COOKIE_FILE"
+
+echo "👉 Dán cookie vào đây (nhấn Enter 2 lần để kết thúc):"
 echo ""
 
-log "[3/5] CHỜ NHẬP COOKIE..."
+# Đọc nhiều dòng input
+COOKIE_INPUT=""
+while IFS= read -r line; do
+    # Nếu dòng trống thì tiếp tục
+    if [ -z "$line" ]; then
+        continue
+    fi
+    COOKIE_INPUT="$COOKIE_INPUT$line"$'\n'
+done
 
-# Đọc trực tiếp từ bàn phím vào cookie.txt
-cat > "$COOKIE_FILE"
+# Xử lý từng dòng
+COOKIE_COUNT=0
+echo "$COOKIE_INPUT" | while IFS= read -r line; do
+    # Bỏ qua dòng trống
+    [ -z "$line" ] && continue
+    
+    # Lấy cookie từ dòng (nếu có nhiều cookie trên 1 dòng thì tách)
+    # Dạng cookie thường có định dạng: [prefix]|[WARNING...]|[data]
+    if [[ "$line" == *"WARNING:-DO-NOT-SHARE-THIS"* ]]; then
+        # Đây là cả cookie
+        COOKIE="$line"
+        COOKIE_LEN=${#COOKIE}
+        
+        if [ $COOKIE_LEN -ge 100 ]; then
+            echo "$COOKIE" >> "$COOKIE_FILE"
+            COOKIE_COUNT=$((COOKIE_COUNT + 1))
+            echo "   ✅ Cookie #$COOKIE_COUNT: $COOKIE_LEN ký tự"
+        else
+            echo "   ⚠️  Cookie quá ngắn ($COOKIE_LEN ký tự), bỏ qua"
+        fi
+    else
+        # Có thể là cookie bị tách dòng, thử ghép với dòng tiếp theo
+        # Hoặc đây là 1 phần của cookie
+        echo "   ⚠️  Dòng không hợp lệ, bỏ qua: ${line:0:50}..."
+    fi
+done
 
-# Kiểm tra file có dữ liệu không
-if [ ! -s "$COOKIE_FILE" ]; then
+# Đếm số lượng cookie trong file
+if [ -f "$COOKIE_FILE" ]; then
+    TOTAL=$(wc -l < "$COOKIE_FILE" | xargs)
     echo ""
-    echo "❌ Bạn chưa nhập cookie nào!"
-    log "❌ Không có cookie nào được nhập"
+    echo "✅ Đã nhận $TOTAL cookie hợp lệ!"
+    echo "✅ Đã lưu vào file: $COOKIE_FILE"
+    log "✅ Đã nhận $TOTAL cookie!"
+else
+    echo ""
+    echo "❌ Không có cookie nào được lưu!"
     exit 1
 fi
-
-echo ""
-echo "✅ Đã lưu cookie vào: $COOKIE_FILE"
-log "✅ Đã lưu cookie vào $COOKIE_FILE"
-
-# Hiển thị số dòng đã nhập (không đếm dòng trống)
-TOTAL_LINES=$(grep -c '[^[:space:]]' "$COOKIE_FILE" 2>/dev/null)
-echo "📊 Đã nhập $TOTAL_LINES cookie(s)"
-echo ""
 # ============================================================
 # PHASE 4: CHẠY TOOL COOKIE LOGIN
 # ============================================================
