@@ -2,8 +2,8 @@ pkg install jq -y
 #!/data/data/com.termux/files/usr/bin/bash
 
 # ============================================================
-#   🚀 AUTO REJOIN + CHECK & CHANGE ACCOUNT
-#   Hỗ trợ file JSON có _bf trong tên
+#   🚀 AUTO REJOIN + CHECK & CHANGE ACCOUNT + CHANGE SCRIPT
+#   Khi đủ điều kiện -> đổi script -> change acc -> rejoin
 # ============================================================
 
 GREEN='\033[0;32m'
@@ -14,7 +14,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # ============================================================
-#   📋 CẤU HÌNH
+#   📋 CẤU HÌNH REJOIN
 # ============================================================
 
 PACKAGE="com.roblox.client"
@@ -32,33 +32,72 @@ MAX_TIMEOUT=80
 WAIT_AFTER_LAUNCH=90
 
 ENABLE_AUTO_RESTART="true"
-AUTO_RESTART_INTERVAL=3600
-
-LOG_FILE="/sdcard/Download/auto_farm_log.txt"
-LAST_RESTART_TIME=$(date +%s)
-CAPTURE_PID=""
-LAST_WEBHOOK_TIME=0
+AUTO_RESTART_INTERVAL=7200
 
 # ============================================================
-#   📋 CẤU HÌNH CHECK ITEM
+#   📋 CẤU HÌNH CHANGE ACCOUNT
 # ============================================================
 
 CHECK_BELI="true"
 CHECK_LEVEL="true"
 CHECK_GODHUMAN="true"
-CHECK_CURSED_DUAL="false"
+CHECK_CURSED_DUAL="true"
 CHECK_TUSHITA="false"
 CHECK_YAMA="false"
-CHECK_VALKYRIE="false"
-CHECK_MIRROR_FRACTAL="false"
+CHECK_VALKYRIE="true"
+CHECK_MIRROR_FRACTAL="true"
 
 MIN_BELI=50000
 MIN_LEVEL=2800
 AUTO_CHANGE_WHEN_DONE="true"
 
 # ============================================================
+#   📋 CẤU HÌNH CHANGE SCRIPT (TÁCH RIÊNG)
+# ============================================================
+
+# ---- BẬT/TẮT CHECK CHO CHANGE SCRIPT ----
+CHECK_SCRIPT_BELI="true"
+CHECK_SCRIPT_LEVEL="true"
+CHECK_SCRIPT_GODHUMAN="true"
+CHECK_SCRIPT_CURSED_DUAL="false"
+CHECK_SCRIPT_TUSHITA="false"
+CHECK_SCRIPT_YAMA="false"
+CHECK_SCRIPT_VALKYRIE="false"
+CHECK_SCRIPT_MIRROR_FRACTAL="false"
+
+# ---- NGƯỠNG YÊU CẦU CHO CHANGE SCRIPT ----
+MIN_SCRIPT_BELI=10000
+MIN_SCRIPT_LEVEL=2800
+
+# ---- TỰ ĐỘNG CHANGE SCRIPT KHI ĐỦ ĐIỀU KIỆN ----
+AUTO_CHANGE_SCRIPT="true"
+
+# ============================================================
+#   📋 CẤU HÌNH DANH SÁCH SCRIPT
+# ============================================================
+
+# Thư mục Autoexec của Arceus X
+ARCEUS_AUTOEXEC="/storage/emulated/0/Arceus X/Autoexec"
+
+# Danh sách script (lần lượt từ script 1 -> script 2 -> script 3...)
+# Khi đủ điều kiện change script, tool sẽ chuyển sang script tiếp theo
+SCRIPT_1="yumy.txt"
+SCRIPT_2="kaitun 1.txt"
+SCRIPT_3="checkonline.txt"
+SCRIPT_4=""
+SCRIPT_5=""
+
+# File lưu trạng thái script hiện tại
+SCRIPT_STATE_FILE="/sdcard/Download/current_script.txt"
+
+# ============================================================
 #   LOG
 # ============================================================
+
+LOG_FILE="/sdcard/Download/auto_farm_log.txt"
+LAST_RESTART_TIME=$(date +%s)
+CAPTURE_PID=""
+LAST_WEBHOOK_TIME=0
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -93,7 +132,6 @@ send_discord_webhook() {
 # ============================================================
 
 capture_screen() {
-    # Dọn dẹp tiến trình chụp ảnh cũ
     if [ -n "$CAPTURE_PID" ] && kill -0 "$CAPTURE_PID" 2>/dev/null; then
         kill -9 "$CAPTURE_PID" 2>/dev/null
     fi
@@ -123,6 +161,86 @@ capture_screen() {
 }
 
 # ============================================================
+#   QUẢN LÝ SCRIPT - LẤY SCRIPT HIỆN TẠI
+# ============================================================
+
+get_current_script_index() {
+    if [ -f "$SCRIPT_STATE_FILE" ]; then
+        cat "$SCRIPT_STATE_FILE" 2>/dev/null | tr -d '\n\r'
+    else
+        echo "1"
+    fi
+}
+
+save_script_index() {
+    echo "$1" > "$SCRIPT_STATE_FILE"
+}
+
+# ============================================================
+#   QUẢN LÝ SCRIPT - ĐỔI SCRIPT
+# ============================================================
+
+change_script() {
+    local current_index=$(get_current_script_index)
+    local next_index=$((current_index + 1))
+    
+    # Tạo mảng script
+    SCRIPTS=()
+    [ -n "$SCRIPT_1" ] && SCRIPTS+=("$SCRIPT_1")
+    [ -n "$SCRIPT_2" ] && SCRIPTS+=("$SCRIPT_2")
+    [ -n "$SCRIPT_3" ] && SCRIPTS+=("$SCRIPT_3")
+    [ -n "$SCRIPT_4" ] && SCRIPTS+=("$SCRIPT_4")
+    [ -n "$SCRIPT_5" ] && SCRIPTS+=("$SCRIPT_5")
+    
+    local total_scripts=${#SCRIPTS[@]}
+    
+    if [ $total_scripts -eq 0 ]; then
+        log "⚠️ Không có script nào được cấu hình!"
+        return 1
+    fi
+    
+    # Nếu đã hết script, quay lại script 1
+    if [ $next_index -gt $total_scripts ]; then
+        next_index=1
+    fi
+    
+    # Lấy tên script mới
+    local new_script="${SCRIPTS[$((next_index - 1))]}"
+    local current_script="${SCRIPTS[$((current_index - 1))]}"
+    
+    log "📝 Đổi script: $current_script -> $new_script"
+    
+    # Tạo thư mục Autoexec nếu chưa có
+    mkdir -p "$ARCEUS_AUTOEXEC"
+    
+    # Xóa tất cả file cũ trong Autoexec
+    rm -rf "$ARCEUS_AUTOEXEC"/*
+    
+    # Copy script mới vào Autoexec
+    local source_file="/sdcard/Download/$new_script"
+    
+    if [ -f "$source_file" ]; then
+        cp "$source_file" "$ARCEUS_AUTOEXEC/"
+        log "✅ Đã copy script mới: $new_script"
+        
+        # Gửi webhook thông báo đổi script
+        local msg="🔄 **ĐỔI SCRIPT**\n"
+        msg+="📜 Từ: **$current_script**\n"
+        msg+="📜 Sang: **$new_script**\n"
+        msg+="👤 Account: **$USERNAME**\n"
+        msg+="⏰ Thời gian: $(date '+%H:%M:%S')"
+        send_discord_webhook "🔄 ĐỔI SCRIPT" "$msg" 16711680
+        
+        # Lưu index mới
+        save_script_index "$next_index"
+        return 0
+    else
+        log "❌ Không tìm thấy file script: $source_file"
+        return 1
+    fi
+}
+
+# ============================================================
 #   LẤY TÊN NHÂN VẬT ĐANG CÀY
 # ============================================================
 
@@ -147,7 +265,7 @@ get_current_character() {
 }
 
 # ============================================================
-#   TÌM FILE JSON CỦA NHÂN VẬT ĐÓ
+#   TÌM FILE JSON
 # ============================================================
 
 find_character_json() {
@@ -157,7 +275,6 @@ find_character_json() {
         return 1
     fi
     
-    # Cách 1: Tìm file có tên chứa tên nhân vật
     local found_file=$(find "$WORKSPACE_DIR" -name "*${character_name}*.json" -type f 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
@@ -165,7 +282,6 @@ find_character_json() {
         return 0
     fi
     
-    # Cách 2: Tìm file JSON có tên trong nội dung
     found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -exec grep -l "$character_name" {} \; 2>/dev/null | head -1)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
@@ -173,7 +289,6 @@ find_character_json() {
         return 0
     fi
     
-    # Cách 3: Tìm file JSON mới nhất (fallback)
     found_file=$(find "$WORKSPACE_DIR" -name "*.json" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
     
     if [ -n "$found_file" ] && [ -f "$found_file" ]; then
@@ -201,10 +316,8 @@ read_json_data() {
         return 1
     fi
     
-    # Thử lấy Username từ JSON trước
     USERNAME=$(jq -r '.Username // ""' "$json_file" 2>/dev/null)
     
-    # Nếu không có Username trong JSON, lấy từ tên file
     if [ -z "$USERNAME" ] || [ "$USERNAME" = "null" ] || [ "$USERNAME" = "Unknown" ]; then
         local filename=$(basename "$json_file" .json)
         USERNAME=$(echo "$filename" | sed 's/_bf$//')
@@ -219,17 +332,12 @@ read_json_data() {
     SWORDS=$(jq -r '.Swords[]?' "$json_file" 2>/dev/null)
     ACCESSORIES=$(jq -r '.Accessories[]?' "$json_file" 2>/dev/null)
     MATERIALS=$(jq -r '.Materials[]?' "$json_file" 2>/dev/null)
-    
-    # ============ THÊM PHẦN ĐỌC MELEE ============
     MELEE=$(jq -r '.Melee[]?' "$json_file" 2>/dev/null)
     
-    # ============ CHECK GODHUMAN TRONG MELEE ============
     HAS_GODHUMAN="false"
-    # Check trong Swords trước
     if echo "$SWORDS" | grep -qi "godhuman" || echo "$SWORDS" | grep -qi "god human"; then
         HAS_GODHUMAN="true"
     fi
-    # Check trong Melee (QUAN TRỌNG)
     if echo "$MELEE" | grep -qi "godhuman" || echo "$MELEE" | grep -qi "god human"; then
         HAS_GODHUMAN="true"
     fi
@@ -259,34 +367,24 @@ read_json_data() {
         HAS_MIRROR_FRACTAL="true"
     fi
     
-    # Debug log
-    log "📊 Dữ liệu đọc được:"
-    log "   USERNAME: $USERNAME"
-    log "   BELI: $BELI"
-    log "   LEVEL: $LEVEL"
-    log "   MELEE: $MELEE"
-    log "   HAS_GODHUMAN: $HAS_GODHUMAN"
-    
     return 0
 }
 
 # ============================================================
-#   CHECK ĐIỀU KIỆN
+#   CHECK ĐIỀU KIỆN CHANGE ACCOUNT
 # ============================================================
 
-check_conditions() {
+check_conditions_change_acc() {
     local all_passed=true
     local result=""
     
     result+="════════════════════════════════════════════\n"
-    result+="📊 KẾT QUẢ CHECK ACCOUNT\n"
+    result+="📊 CHECK CHANGE ACCOUNT\n"
     result+="════════════════════════════════════════════\n"
     result+="👤 Username: $USERNAME\n"
     result+="💰 Beli: $BELI\n"
     result+="📈 Level: $LEVEL\n"
-    result+="💎 Fragments: $FRAGMENTS\n"
-    result+="👥 Race: $RACE\n"
-    result+="💰 Bounty: $BOUNTY\n\n"
+    result+="💎 Fragments: $FRAGMENTS\n\n"
     
     if [ "$CHECK_BELI" = "true" ]; then
         if [ $BELI -ge $MIN_BELI ]; then
@@ -317,9 +415,9 @@ check_conditions() {
     
     if [ "$CHECK_CURSED_DUAL" = "true" ]; then
         if [ "$HAS_CURSED_DUAL" = "true" ]; then
-            result+="🗡️ Cursed Dual Katana: ✅ CÓ\n"
+            result+="🗡️ Cursed Dual: ✅ CÓ\n"
         else
-            result+="🗡️ Cursed Dual Katana: ❌ KHÔNG CÓ\n"
+            result+="🗡️ Cursed Dual: ❌ KHÔNG CÓ\n"
             all_passed=false
         fi
     fi
@@ -344,9 +442,9 @@ check_conditions() {
     
     if [ "$CHECK_VALKYRIE" = "true" ]; then
         if [ "$HAS_VALKYRIE" = "true" ]; then
-            result+="🎩 Valkyrie Helm: ✅ CÓ\n"
+            result+="🎩 Valkyrie: ✅ CÓ\n"
         else
-            result+="🎩 Valkyrie Helm: ❌ KHÔNG CÓ\n"
+            result+="🎩 Valkyrie: ❌ KHÔNG CÓ\n"
             all_passed=false
         fi
     fi
@@ -362,12 +460,114 @@ check_conditions() {
     
     result+="\n"
     if [ "$all_passed" = true ]; then
-        result+="🎉 KẾT LUẬN: ACCOUNT ĐẠT YÊU CẦU!\n"
+        result+="🎉 KẾT LUẬN: ĐỦ ĐIỀU KIỆN CHANGE ACCOUNT!\n"
         result+="════════════════════════════════════════════\n"
         echo -e "$result"
         return 0
     else
-        result+="❌ KẾT LUẬN: ACCOUNT CHƯA ĐẠT YÊU CẦU!\n"
+        result+="❌ KẾT LUẬN: CHƯA ĐỦ ĐIỀU KIỆN CHANGE ACCOUNT!\n"
+        result+="════════════════════════════════════════════\n"
+        echo -e "$result"
+        return 1
+    fi
+}
+
+# ============================================================
+#   CHECK ĐIỀU KIỆN CHANGE SCRIPT (TÁCH RIÊNG)
+# ============================================================
+
+check_conditions_change_script() {
+    local all_passed=true
+    local result=""
+    
+    result+="════════════════════════════════════════════\n"
+    result+="📊 CHECK CHANGE SCRIPT\n"
+    result+="════════════════════════════════════════════\n"
+    result+="👤 Username: $USERNAME\n"
+    result+="💰 Beli: $BELI\n"
+    result+="📈 Level: $LEVEL\n"
+    result+="💎 Fragments: $FRAGMENTS\n\n"
+    
+    if [ "$CHECK_SCRIPT_BELI" = "true" ]; then
+        if [ $BELI -ge $MIN_SCRIPT_BELI ]; then
+            result+="💰 Beli: ✅ $BELI >= $MIN_SCRIPT_BELI\n"
+        else
+            result+="💰 Beli: ❌ $BELI < $MIN_SCRIPT_BELI\n"
+            all_passed=false
+        fi
+    fi
+    
+    if [ "$CHECK_SCRIPT_LEVEL" = "true" ]; then
+        if [ $LEVEL -ge $MIN_SCRIPT_LEVEL ]; then
+            result+="📈 Level: ✅ $LEVEL >= $MIN_SCRIPT_LEVEL\n"
+        else
+            result+="📈 Level: ❌ $LEVEL < $MIN_SCRIPT_LEVEL\n"
+            all_passed=false
+        fi
+    fi
+    
+    if [ "$CHECK_SCRIPT_GODHUMAN" = "true" ]; then
+        if [ "$HAS_GODHUMAN" = "true" ]; then
+            result+="🗡️ Godhuman: ✅ CÓ\n"
+        else
+            result+="🗡️ Godhuman: ❌ KHÔNG CÓ\n"
+            all_passed=false
+        fi
+    fi
+    
+    if [ "$CHECK_SCRIPT_CURSED_DUAL" = "true" ]; then
+        if [ "$HAS_CURSED_DUAL" = "true" ]; then
+            result+="🗡️ Cursed Dual: ✅ CÓ\n"
+        else
+            result+="🗡️ Cursed Dual: ❌ KHÔNG CÓ\n"
+            all_passed=false
+        fi
+    fi
+    
+    if [ "$CHECK_SCRIPT_TUSHITA" = "true" ]; then
+        if [ "$HAS_TUSHITA" = "true" ]; then
+            result+="🗡️ Tushita: ✅ CÓ\n"
+        else
+            result+="🗡️ Tushita: ❌ KHÔNG CÓ\n"
+            all_passed=false
+        fi
+    fi
+    
+    if [ "$CHECK_SCRIPT_YAMA" = "true" ]; then
+        if [ "$HAS_YAMA" = "true" ]; then
+            result+="🗡️ Yama: ✅ CÓ\n"
+        else
+            result+="🗡️ Yama: ❌ KHÔNG CÓ\n"
+            all_passed=false
+        fi
+    fi
+    
+    if [ "$CHECK_SCRIPT_VALKYRIE" = "true" ]; then
+        if [ "$HAS_VALKYRIE" = "true" ]; then
+            result+="🎩 Valkyrie: ✅ CÓ\n"
+        else
+            result+="🎩 Valkyrie: ❌ KHÔNG CÓ\n"
+            all_passed=false
+        fi
+    fi
+    
+    if [ "$CHECK_SCRIPT_MIRROR_FRACTAL" = "true" ]; then
+        if [ "$HAS_MIRROR_FRACTAL" = "true" ]; then
+            result+="🪞 Mirror Fractal: ✅ CÓ\n"
+        else
+            result+="🪞 Mirror Fractal: ❌ KHÔNG CÓ\n"
+            all_passed=false
+        fi
+    fi
+    
+    result+="\n"
+    if [ "$all_passed" = true ]; then
+        result+="🎉 KẾT LUẬN: ĐỦ ĐIỀU KIỆN CHANGE SCRIPT!\n"
+        result+="════════════════════════════════════════════\n"
+        echo -e "$result"
+        return 0
+    else
+        result+="❌ KẾT LUẬN: CHƯA ĐỦ ĐIỀU KIỆN CHANGE SCRIPT!\n"
         result+="════════════════════════════════════════════\n"
         echo -e "$result"
         return 1
@@ -381,7 +581,6 @@ check_conditions() {
 change_account() {
     log "🔄 Đang đổi account: $USERNAME"
     
-    # Gửi webhook thông báo change account
     local msg="🔄 **ĐANG ĐỔI ACCOUNT**\n"
     msg+="👤 Từ: **$USERNAME**\n"
     msg+="💰 Beli: $BELI\n"
@@ -400,7 +599,6 @@ change_account() {
     log "⏳ Chờ 60 giây để game load..."
     sleep 60
     
-    # Sau khi change, chụp ảnh
     capture_screen
 }
 
@@ -424,7 +622,6 @@ rejoin_game() {
     LAST_RESTART_TIME=$(date +%s)
     log "⏳ Chờ $WAIT_AFTER_LAUNCH giây để vào game..."
     
-    # Chụp ảnh sau khi rejoin
     capture_screen
     
     sleep $WAIT_AFTER_LAUNCH
@@ -440,7 +637,7 @@ check_account() {
     local CHARACTER_NAME=$(get_current_character)
     
     if [ -z "$CHARACTER_NAME" ]; then
-        log "⏳ Chưa có tên nhân vật (đợi script ghi file)..."
+        log "⏳ Chưa có tên nhân vật..."
         return 2
     fi
     
@@ -449,7 +646,7 @@ check_account() {
     local JSON_FILE=$(find_character_json "$CHARACTER_NAME")
     
     if [ -z "$JSON_FILE" ] || [ ! -f "$JSON_FILE" ]; then
-        log "❌ Không tìm thấy file JSON cho: $CHARACTER_NAME"
+        log "❌ Không tìm thấy file JSON"
         return 1
     fi
     
@@ -477,46 +674,49 @@ check_account() {
     echo -e "${CYAN}════════════════════════════════════════════${NC}"
     echo ""
     
-    # Kiểm tra điều kiện
-    if check_conditions; then
-        log "✅ Account đạt yêu cầu!"
-        
-        # Gửi webhook thông báo đạt yêu cầu
-        local msg="✅ **ACCOUNT ĐẠT YÊU CẦU!**\n"
-        msg+="👤 Username: **$USERNAME**\n"
-        msg+="💰 Beli: $BELI\n"
-        msg+="📈 Level: $LEVEL\n"
-        msg+="🗡️ Godhuman: $HAS_GODHUMAN\n"
-        msg+="🗡️ Cursed Dual: $HAS_CURSED_DUAL\n"
-        msg+="🗡️ Tushita: $HAS_TUSHITA\n"
-        msg+="🗡️ Yama: $HAS_YAMA\n"
-        msg+="🎩 Valkyrie: $HAS_VALKYRIE\n"
-        msg+="🪞 Mirror Fractal: $HAS_MIRROR_FRACTAL"
-        send_discord_webhook "✅ ĐẠT YÊU CẦU" "$msg" 65280
-        
-        return 0
-    else
-        log "❌ Account chưa đạt yêu cầu!"
-        
-        # Gửi webhook thông báo chưa đạt (mỗi 5 phút)
-        local current_time=$(date +%s)
-        if [ $((current_time - LAST_WEBHOOK_TIME)) -ge 300 ]; then
-            LAST_WEBHOOK_TIME=$current_time
+    # Kiểm tra điều kiện CHANGE SCRIPT trước
+    local change_script_pass=false
+    if [ "$AUTO_CHANGE_SCRIPT" = "true" ]; then
+        if check_conditions_change_script; then
+            change_script_pass=true
+            log "✅ ĐỦ ĐIỀU KIỆN CHANGE SCRIPT!"
             
-            local msg="❌ **ACCOUNT CHƯA ĐẠT YÊU CẦU**\n"
+            local msg="✅ **ĐỦ ĐIỀU KIỆN CHANGE SCRIPT!**\n"
             msg+="👤 Username: **$USERNAME**\n"
             msg+="💰 Beli: $BELI\n"
             msg+="📈 Level: $LEVEL\n"
-            msg+="🗡️ Godhuman: $HAS_GODHUMAN\n"
-            msg+="🗡️ Cursed Dual: $HAS_CURSED_DUAL\n"
-            msg+="🗡️ Tushita: $HAS_TUSHITA\n"
-            msg+="🗡️ Yama: $HAS_YAMA\n"
-            msg+="🎩 Valkyrie: $HAS_VALKYRIE\n"
-            msg+="🪞 Mirror Fractal: $HAS_MIRROR_FRACTAL"
-            send_discord_webhook "❌ CHƯA ĐẠT" "$msg" 16711680
+            msg+="🗡️ Godhuman: $HAS_GODHUMAN"
+            send_discord_webhook "✅ CHANGE SCRIPT" "$msg" 65280
+            
+            # Đổi script
+            log "📝 Đang đổi script..."
+            change_script
+            
+            # Rejoin để script mới load
+            log "🔄 Rejoin để load script mới..."
+            rejoin_game "Sau change script"
         fi
-        
-        return 1
+    fi
+    
+    # Kiểm tra điều kiện CHANGE ACCOUNT
+    if [ "$AUTO_CHANGE_WHEN_DONE" = "true" ]; then
+        if check_conditions_change_acc; then
+            log "✅ ĐỦ ĐIỀU KIỆN CHANGE ACCOUNT!"
+            
+            local msg="✅ **ĐỦ ĐIỀU KIỆN CHANGE ACCOUNT!**\n"
+            msg+="👤 Username: **$USERNAME**\n"
+            msg+="💰 Beli: $BELI\n"
+            msg+="📈 Level: $LEVEL\n"
+            msg+="🗡️ Godhuman: $HAS_GODHUMAN"
+            send_discord_webhook "✅ CHANGE ACCOUNT" "$msg" 65280
+            
+            # Đổi account
+            log "🔄 Đang đổi account..."
+            change_account
+            
+            # Rejoin sau change account
+            rejoin_game "Sau change account"
+        fi
     fi
 }
 
@@ -525,17 +725,40 @@ check_account() {
 # ============================================================
 
 echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
-echo -e "${GREEN}    🤖 AUTO REJOIN + CHECK & CHANGE${NC}"
+echo -e "${GREEN}    🤖 AUTO REJOIN + CHANGE SCRIPT + CHANGE ACC${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
 echo -e "${CYAN}    🆔 Máy: $DEVICE_NAME${NC}"
 echo -e "${CYAN}    📋 Place ID: $PLACE_ID${NC}"
+echo -e "${CYAN}    📜 Script hiện tại: $(get_current_script_index)${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
 echo ""
 
 log "🚀 Tool bắt đầu hoạt động trên $DEVICE_NAME..."
-log "📋 Config: Beli >= $MIN_BELI, Level >= $MIN_LEVEL"
+log "📋 Config Change Acc: Beli >= $MIN_BELI, Level >= $MIN_LEVEL"
+log "📋 Config Change Script: Beli >= $MIN_SCRIPT_BELI, Level >= $MIN_SCRIPT_LEVEL"
 
 send_discord_webhook "🚀 Tool Auto Farm khởi động" "Đang giám sát game trên thiết bị." 65280
+
+# Tạo thư mục Autoexec
+mkdir -p "$ARCEUS_AUTOEXEC"
+
+# Copy script hiện tại vào Autoexec
+CURRENT_INDEX=$(get_current_script_index)
+SCRIPTS=()
+[ -n "$SCRIPT_1" ] && SCRIPTS+=("$SCRIPT_1")
+[ -n "$SCRIPT_2" ] && SCRIPTS+=("$SCRIPT_2")
+[ -n "$SCRIPT_3" ] && SCRIPTS+=("$SCRIPT_3")
+[ -n "$SCRIPT_4" ] && SCRIPTS+=("$SCRIPT_4")
+[ -n "$SCRIPT_5" ] && SCRIPTS+=("$SCRIPT_5")
+
+CURRENT_SCRIPT="${SCRIPTS[$((CURRENT_INDEX - 1))]}"
+if [ -n "$CURRENT_SCRIPT" ] && [ -f "/sdcard/Download/$CURRENT_SCRIPT" ]; then
+    rm -rf "$ARCEUS_AUTOEXEC"/*
+    cp "/sdcard/Download/$CURRENT_SCRIPT" "$ARCEUS_AUTOEXEC/"
+    log "📝 Load script: $CURRENT_SCRIPT"
+else
+    log "⚠️ Không tìm thấy script: $CURRENT_SCRIPT"
+fi
 
 # Rejoin lần đầu
 rejoin_game "Khởi động ban đầu"
@@ -547,7 +770,6 @@ while true; do
     CURRENT_TIME=$(date +%s)
     ELAPSED_TIME=$((CURRENT_TIME - LAST_RESTART_TIME))
 
-    # Kiểm tra heartbeat
     if [ ! -f "$HEARTBEAT_FILE" ]; then
         log "⚠️ KHÔNG TÌM THẤY HEARTBEAT!"
         rejoin_game "Không tìm thấy heartbeat.txt"
@@ -572,40 +794,4 @@ while true; do
         log "⚠️ Heartbeat invalid!"
         rejoin_game "Heartbeat invalid"
         FAIL_COUNT=0
-        continue
-    fi
-
-    # Restart định kỳ
-    if [ "$ENABLE_AUTO_RESTART" = "true" ] && [ $ELAPSED_TIME -ge $AUTO_RESTART_INTERVAL ]; then
-        log "⏰ Restart định kỳ!"
-        rejoin_game "Restart định kỳ ($AUTO_RESTART_INTERVAL giây)"
-        FAIL_COUNT=0
-        continue
-    fi
-
-    # Check account mỗi 30 giây
-    if [ $((CURRENT_TIME % 30)) -lt 5 ]; then
-        check_account
-        RESULT=$?
-        
-        if [ $RESULT -eq 0 ]; then
-            if [ "$AUTO_CHANGE_WHEN_DONE" = "true" ]; then
-                log "🎯 Đủ điều kiện! Change acc..."
-                change_account
-                rejoin_game "Sau change account"
-                FAIL_COUNT=0
-            fi
-        elif [ $RESULT -eq 2 ]; then
-            FAIL_COUNT=$((FAIL_COUNT + 1))
-            if [ $FAIL_COUNT -gt 10 ]; then
-                log "⚠️ Không có tên nhân vật sau 5 phút! Rejoin..."
-                rejoin_game "Không có tên nhân vật"
-                FAIL_COUNT=0
-            fi
-        else
-            FAIL_COUNT=0
-        fi
-    fi
-
-    sleep $CHECK_INTERVAL
-done
+       
