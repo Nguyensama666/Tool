@@ -289,38 +289,46 @@ sleep 3
 
 log "📁 Copy script vào Codex/Autoexec..."
 
+# Tạo thư mục và cấp quyền công khai
 mkdir -p "$CODEX_AUTOEXEC"
+chmod 777 "$CODEX_AUTOEXEC" 2>/dev/null
+su -c "chmod 777 \"$CODEX_AUTOEXEC\"" 2>/dev/null
 
-if [ -f "$DOWNLOAD/$SCRIPT_1" ]; then
-    cp "$DOWNLOAD/$SCRIPT_1" "$CODEX_AUTOEXEC/"
-    log "✅ Đã copy $SCRIPT_1"
-else
-    log "⚠️ Không tìm thấy $SCRIPT_1"
-fi
+# Hàm copy và sửa nhãn SELinux/Quyền tệp Android chuẩn
+copy_and_fix() {
+    local file_name="$1"
+    if [ -n "$file_name" ] && [ -f "$DOWNLOAD/$file_name" ]; then
+        local target_path="$CODEX_AUTOEXEC/$file_name"
+        
+        # 1. Dùng cat tạo file mới thay vì cp để tránh dính SELinux context của Termux
+        cat "$DOWNLOAD/$file_name" > "$target_path"
+        
+        # 2. Cấp quyền đọc/ghi cho tất cả app
+        chmod 666 "$target_path" 2>/dev/null
+        
+        # 3. Đổi owner về root/sdcard và khôi phục nhãn SELinux chuẩn của Android (media_rw)
+        su -c "chmod 666 \"$target_path\"" 2>/dev/null
+        su -c "chcon u:object_r:media_rw:s0 \"$target_path\"" 2>/dev/null
+        
+        log "✅ Đã copy & fix SELinux: $file_name"
+    else
+        if [ -n "$file_name" ]; then
+            log "⚠️ Không tìm thấy $file_name"
+        fi
+    fi
+}
 
-if [ -f "$DOWNLOAD/$SCRIPT_2" ]; then
-    cp "$DOWNLOAD/$SCRIPT_2" "$CODEX_AUTOEXEC/"
-    log "✅ Đã copy $SCRIPT_2"
-else
-    log "⚠️ Không tìm thấy $SCRIPT_2"
-fi
-if [ -f "$DOWNLOAD/$SCRIPT_3" ]; then
-    cp "$DOWNLOAD/$SCRIPT_3" "$CODEX_AUTOEXEC/"
-    log "✅ Đã copy $SCRIPT_3"
-else
-    log "⚠️ Không tìm thấy $SCRIPT_3"
-fi
-if [ -f "$DOWNLOAD/$SCRIPT_4" ]; then
-    cp "$DOWNLOAD/$SCRIPT_4" "$CODEX_AUTOEXEC/"
-    log "✅ Đã copy $SCRIPT_4"
-else
-    log "⚠️ Không tìm thấy $SCRIPT_4"
-fi
+# Thực thi copy chuẩn SELinux
+copy_and_fix "$SCRIPT_1"
+copy_and_fix "$SCRIPT_2"
+copy_and_fix "$SCRIPT_3"
+copy_and_fix "$SCRIPT_4"
 
-
+# 4. Ép hệ thống Android đồng bộ dữ liệu xuống đĩa
+sync
+su -c "sync" 2>/dev/null
 
 log "✅ Đã hoàn tất copy script!"
-
 # ============================================================
 # HOÀN TẤT
 # ============================================================
