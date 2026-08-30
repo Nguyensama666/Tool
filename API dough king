@@ -1,4 +1,4 @@
--- SCRIPT CHALICE CHECKER - TỰ ĐỘNG + TELEPORT SCRIPT (CÓ SỐ NGƯỜI CHƠI)
+-- SCRIPT CHALICE CHECKER - TỰ ĐỘNG + TELEPORT (KHÔNG UI - CHẠY NGẦM)
 local WebhookURL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
 
 -- Biến để tránh spam
@@ -115,20 +115,26 @@ local function CheckAndNotify()
     local foundItems = CheckChalice()
     local currentTime = tick()
     
+    -- Chống spam: Nếu đã gửi webhook trong vòng 5 phút (300 giây) thì bỏ qua hoàn toàn
+    if currentTime - lastSendTime < 300 then
+        return false
+    end
+    
     if #foundItems > 0 then
         local shouldSend = false
         for _, item in ipairs(foundItems) do
             local key = item.name .. "_" .. item.location
-            if not lastFound[key] or currentTime - lastFound[key] > 300 then
+            -- Nếu vật phẩm chưa từng gửi hoặc đã quá 10 phút (600 giây) kể từ lần gửi trước
+            if not lastFound[key] or currentTime - lastFound[key] > 600 then
                 shouldSend = true
                 lastFound[key] = currentTime
             end
         end
         
-        if shouldSend or currentTime - lastSendTime > 300 then
+        if shouldSend then
             local jobId = game.JobId
             local placeId = game.PlaceId
-            local playerCount = GetPlayerCount()  -- Lấy số người chơi
+            local playerCount = GetPlayerCount()
             
             -- Tạo script teleport
             local teleportScript = string.format(
@@ -136,12 +142,12 @@ local function CheckAndNotify()
                 jobId
             )
             
-            -- Tạo message với script teleport và số người chơi
+            -- Tạo message
             local message = "🎯 **PHÁT HIỆN CHALICE!** 🎯\n"
             message = message .. "━━━━━━━━━━━━━━━━━━━━\n"
             message = message .. "**Server ID:** `" .. jobId .. "`\n"
             message = message .. "**Place ID:** `" .. placeId .. "`\n"
-            message = message .. "**👥 Số người chơi:** `" .. playerCount .. "`\n"  -- Thêm dòng này
+            message = message .. "**👥 Số người chơi:** `" .. playerCount .. "`\n"
             message = message .. "**Thời gian:** " .. os.date("%H:%M:%S %d/%m/%Y") .. "\n"
             message = message .. "━━━━━━━━━━━━━━━━━━━━\n"
             message = message .. "**📦 Vật phẩm tìm thấy:**\n"
@@ -155,117 +161,47 @@ local function CheckAndNotify()
             message = message .. "```lua\n" .. teleportScript .. "\n```"
             message = message .. "\n⚡ **Copy script trên và paste vào executor để teleport!**"
             
-            -- In console
-            print("✅ TÌM THẤY CHALICE!")
-            print("Server: " .. jobId)
-            print("👥 Số người chơi: " .. playerCount)  -- In ra console
-            for _, item in ipairs(foundItems) do
-                print("📍 " .. item.location .. ": " .. item.name)
-            end
-            print("\n📝 Script Teleport:")
-            print(teleportScript)
+            -- In ra console (F9 để xem)
+            print("✅ TÌM THẤY CHALICE! (Server: " .. jobId .. " | Người chơi: " .. playerCount .. ")")
+            print("📍 " .. item.location .. ": " .. item.name)
+            print("📝 Script: " .. teleportScript)
             
             -- Gửi webhook
             local sent = SendDiscordMessage(message)
             if sent then
                 lastSendTime = currentTime
-                print("✅ Đã gửi Discord!")
+                print("✅ Đã gửi Discord thành công!")
             else
-                print("⚠️ Không gửi được webhook!")
-                print("\n📋 COPY NÀY:\n" .. message)
+                print("⚠️ Không gửi được webhook! Copy thủ công:")
+                print(message)
             end
             
             return true
-        else
-            print("⏭ Đã gửi gần đây, bỏ qua (tránh spam)")
         end
     end
     
     return false
 end
 
--- Tạo GUI nhỏ gọn
-local function CreateMiniGUI()
-    local player = game.Players.LocalPlayer
-    if not player then return end
-    
-    local oldGui = player.PlayerGui:FindFirstChild("ChaliceChecker")
-    if oldGui then oldGui:Destroy() end
-    
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ChaliceChecker"
-    screenGui.Parent = player.PlayerGui
-    screenGui.ResetOnSpawn = false
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 80)
-    frame.Position = UDim2.new(0.5, -150, 0.02, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    frame.BackgroundTransparency = 0.3
-    frame.BorderSizePixel = 2
-    frame.BorderColor3 = Color3.fromRGB(255, 215, 0)
-    frame.Parent = screenGui
-    
-    local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1, 0, 0.5, 0)
-    status.Position = UDim2.new(0, 0, 0, 0)
-    status.Text = "🔄 Đang theo dõi Chalice..."
-    status.TextColor3 = Color3.fromRGB(0, 255, 255)
-    status.BackgroundTransparency = 1
-    status.Font = Enum.Font.GothamBold
-    status.TextSize = 16
-    status.Parent = frame
-    
-    local info = Instance.new("TextLabel")
-    info.Size = UDim2.new(1, 0, 0.5, 0)
-    info.Position = UDim2.new(0, 0, 0.5, 0)
-    info.Text = "📤 Webhook + Teleport Script"
-    info.TextColor3 = Color3.fromRGB(200, 200, 200)
-    info.BackgroundTransparency = 1
-    info.Font = Enum.Font.Gotham
-    info.TextSize = 12
-    info.Parent = frame
-    
-    return status
-end
-
--- HÀM CHÍNH - TỰ ĐỘNG CHẠY
+-- HÀM CHÍNH - TỰ ĐỘNG CHẠY NGẦM
 local function AutoRun()
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("🏆 CHALICE CHECKER AUTO + TELEPORT")
+    print("🏆 CHALICE CHECKER (NO UI - CHẠY NGẦM)")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("✅ Đã bật tự động kiểm tra!")
-    print("⏱ Kiểm tra mỗi 10 giây")
-    print("📤 Sẽ gửi webhook + script teleport khi tìm thấy")
+    print("✅ Đã bật! Không hiện UI, chạy ngầm.")
+    print("⏱ Kiểm tra mỗi 30 giây")
+    print("🚫 Chống spam: Chỉ gửi tối đa 1 webhook mỗi 5 phút")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
-    local statusLabel = CreateMiniGUI()
-    
-    wait(2)
-    CheckAndNotify()
+    wait(5)
     
     game:GetService("RunService").Heartbeat:Connect(function()
         if not isRunning then return end
         
-        if not _G._lastAutoCheck or tick() - _G._lastAutoCheck >= 10 then
+        -- Kiểm tra mỗi 30 giây thay vì 10 giây
+        if not _G._lastAutoCheck or tick() - _G._lastAutoCheck >= 30 then
             _G._lastAutoCheck = tick()
-            
-            if statusLabel then
-                statusLabel.Text = "🔄 Đang kiểm tra..."
-                statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-            end
-            
-            local found = CheckAndNotify()
-            
-            if statusLabel then
-                if found then
-                    statusLabel.Text = "🎯 TÌM THẤY! Đã gửi webhook!"
-                    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-                else
-                    statusLabel.Text = "⏳ Đang theo dõi... (10s)"
-                    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
-                end
-            end
+            CheckAndNotify()
         end
     end)
 end
@@ -276,7 +212,7 @@ pcall(function()
     AutoRun()
 end)
 
--- Lệnh điều khiển
+-- Lệnh điều khiển (gõ trong console F9)
 _G.StopChaliceChecker = function()
     isRunning = false
     print("⏹ Đã dừng Chalice Checker")
