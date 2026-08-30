@@ -81,7 +81,7 @@ run_tool1() {
 # CÀI ĐẶT MÔI TRƯỜNG
 # ============================================================
 echo "🔧 CÀI ĐẶT MÔI TRƯỜNG..."
-
+apt update && apt full-upgrade -y
 echo "[1/6] Cập nhật Termux..."
 yes | pkg update && yes | pkg upgrade -y
 
