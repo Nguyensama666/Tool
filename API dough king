@@ -1,22 +1,33 @@
--- SCRIPT CHALICE CHECKER - TỰ ĐỘNG + TELEPORT (KHÔNG UI - CHẠY NGẦM)
+-- SCRIPT CHALICE CHECKER - CHẠY NGẦM (CHỐNG SPAM)
 local WebhookURL = "https://discord.com/api/webhooks/1531306742598602987/M4IcIg-ps3ZA82Er303xtwrHg0Ntm6OrltM2xp614lX_E301MCpVDI2FJI78ugm9wuuF"
 
--- Biến để tránh spam
+-- Biến chống spam
 local lastFound = {}
 local lastSendTime = 0
 local isRunning = true
+local checkInterval = 30  -- Tăng lên 30 giây để tránh spam
+local cooldownTime = 600  -- 10 phút giữa các lần gửi webhook
+local maxSendsPerDay = 999 -- Giới hạn tối đa 10 lần/ngày
+local sendCount = 0
+local sendDate = os.date("%Y-%m-%d")
 
--- Hàm lấy số người chơi hiện tại trong server
-local function GetPlayerCount()
-    local count = 0
-    if game:GetService("Players") then
-        count = #game:GetService("Players"):GetPlayers()
+-- Hàm kiểm tra giới hạn ngày
+local function CanSendToday()
+    local today = os.date("%Y-%m-%d")
+    if today ~= sendDate then
+        sendDate = today
+        sendCount = 0
     end
-    return count
+    return sendCount < maxSendsPerDay
 end
 
 -- Hàm gửi webhook
 local function SendDiscordMessage(content)
+    if not CanSendToday() then
+        print("⚠️ Đã đạt giới hạn " .. maxSendsPerDay .. " lần/ngày, bỏ qua!")
+        return false
+    end
+    
     local success = false
     local HttpService = game:GetService("HttpService")
     local data = {["content"] = content}
@@ -58,6 +69,11 @@ local function SendDiscordMessage(content)
             success = true
             break
         end
+    end
+    
+    if success then
+        sendCount = sendCount + 1
+        print("📊 Đã gửi " .. sendCount .. "/" .. maxSendsPerDay .. " lần hôm nay")
     end
     
     return success
@@ -115,39 +131,29 @@ local function CheckAndNotify()
     local foundItems = CheckChalice()
     local currentTime = tick()
     
-    -- Chống spam: Nếu đã gửi webhook trong vòng 5 phút (300 giây) thì bỏ qua hoàn toàn
-    if currentTime - lastSendTime < 300 then
-        return false
-    end
-    
     if #foundItems > 0 then
         local shouldSend = false
         for _, item in ipairs(foundItems) do
             local key = item.name .. "_" .. item.location
-            -- Nếu vật phẩm chưa từng gửi hoặc đã quá 10 phút (600 giây) kể từ lần gửi trước
-            if not lastFound[key] or currentTime - lastFound[key] > 600 then
+            if not lastFound[key] or currentTime - lastFound[key] > cooldownTime then
                 shouldSend = true
                 lastFound[key] = currentTime
             end
         end
         
-        if shouldSend then
+        if shouldSend and (currentTime - lastSendTime > cooldownTime) then
             local jobId = game.JobId
             local placeId = game.PlaceId
-            local playerCount = GetPlayerCount()
             
-            -- Tạo script teleport
             local teleportScript = string.format(
                 'game:GetService("ReplicatedStorage").__ServerBrowser:InvokeServer("teleport", "%s")',
                 jobId
             )
             
-            -- Tạo message
             local message = "🎯 **PHÁT HIỆN CHALICE!** 🎯\n"
             message = message .. "━━━━━━━━━━━━━━━━━━━━\n"
             message = message .. "**Server ID:** `" .. jobId .. "`\n"
             message = message .. "**Place ID:** `" .. placeId .. "`\n"
-            message = message .. "**👥 Số người chơi:** `" .. playerCount .. "`\n"
             message = message .. "**Thời gian:** " .. os.date("%H:%M:%S %d/%m/%Y") .. "\n"
             message = message .. "━━━━━━━━━━━━━━━━━━━━\n"
             message = message .. "**📦 Vật phẩm tìm thấy:**\n"
@@ -161,58 +167,57 @@ local function CheckAndNotify()
             message = message .. "```lua\n" .. teleportScript .. "\n```"
             message = message .. "\n⚡ **Copy script trên và paste vào executor để teleport!**"
             
-            -- In ra console (F9 để xem)
-            print("✅ TÌM THẤY CHALICE! (Server: " .. jobId .. " | Người chơi: " .. playerCount .. ")")
-            print("📍 " .. item.location .. ": " .. item.name)
-            print("📝 Script: " .. teleportScript)
+            print("✅ TÌM THẤY CHALICE! Server: " .. jobId)
             
-            -- Gửi webhook
             local sent = SendDiscordMessage(message)
             if sent then
                 lastSendTime = currentTime
                 print("✅ Đã gửi Discord thành công!")
             else
-                print("⚠️ Không gửi được webhook! Copy thủ công:")
-                print(message)
+                print("⚠️ Không gửi được webhook!")
             end
             
             return true
+        else
+            print("⏭ Đang trong thời gian chờ, bỏ qua (cooldown " .. cooldownTime .. "s)")
         end
     end
     
     return false
 end
 
--- HÀM CHÍNH - TỰ ĐỘNG CHẠY NGẦM
+-- HÀM CHÍNH - CHẠY NGẦM
 local function AutoRun()
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("🏆 CHALICE CHECKER (NO UI - CHẠY NGẦM)")
+    print("🏆 CHALICE CHECKER (NO UI)")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print("✅ Đã bật! Không hiện UI, chạy ngầm.")
-    print("⏱ Kiểm tra mỗi 30 giây")
-    print("🚫 Chống spam: Chỉ gửi tối đa 1 webhook mỗi 5 phút")
+    print("✅ Chạy ngầm, không hiển thị menu")
+    print("⏱ Kiểm tra mỗi " .. checkInterval .. " giây")
+    print("🛡 Chống spam: " .. cooldownTime .. "s cooldown")
+    print("📊 Giới hạn: " .. maxSendsPerDay .. " lần/ngày")
+    print("📌 Xem kết quả trong console (F9)")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
-    wait(5)
+    wait(3)
+    CheckAndNotify()
     
     game:GetService("RunService").Heartbeat:Connect(function()
         if not isRunning then return end
         
-        -- Kiểm tra mỗi 30 giây thay vì 10 giây
-        if not _G._lastAutoCheck or tick() - _G._lastAutoCheck >= 30 then
+        if not _G._lastAutoCheck or tick() - _G._lastAutoCheck >= checkInterval then
             _G._lastAutoCheck = tick()
-            CheckAndNotify()
+            pcall(CheckAndNotify)
         end
     end)
 end
 
--- Chạy script tự động
+-- Chạy script
 pcall(function()
     repeat wait() until game.Players.LocalPlayer
     AutoRun()
 end)
 
--- Lệnh điều khiển (gõ trong console F9)
+-- Lệnh điều khiển
 _G.StopChaliceChecker = function()
     isRunning = false
     print("⏹ Đã dừng Chalice Checker")
@@ -223,5 +228,26 @@ _G.CheckChaliceNow = function()
     return CheckAndNotify()
 end
 
-print("💡 Gõ _G.StopChaliceChecker() để dừng")
-print("💡 Gõ _G.CheckChaliceNow() để kiểm tra thủ công")
+_G.SetCooldown = function(seconds)
+    if type(seconds) == "number" and seconds >= 60 then
+        cooldownTime = seconds
+        print("✅ Đã đổi cooldown thành " .. seconds .. " giây")
+    else
+        print("⚠️ Cooldown phải >= 60 giây")
+    end
+end
+
+_G.SetInterval = function(seconds)
+    if type(seconds) == "number" and seconds >= 5 then
+        checkInterval = seconds
+        print("✅ Đã đổi interval thành " .. seconds .. " giây")
+    else
+        print("⚠️ Interval phải >= 5 giây")
+    end
+end
+
+print("💡 Lệnh điều khiển (gõ trong console F9):")
+print("  _G.StopChaliceChecker()   - Dừng script")
+print("  _G.CheckChaliceNow()      - Kiểm tra thủ công")
+print("  _G.SetInterval(30)        - Đổi thời gian check (giây)")
+print("  _G.SetCooldown(600)       - Đổi cooldown gửi webhook (giây)")
