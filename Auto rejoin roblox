@@ -398,8 +398,8 @@ change_account() {
     rm -f "$CHARACTER_FILE" 2>/dev/null
     rm -f "$HEARTBEAT_FILE" 2>/dev/null
     
-    log "⏳ Chờ 60 giây để game load..."
-    sleep 60
+    log "⏳ Chờ 5 giây để game load..."
+    sleep 5
     
     # Sau khi change, chụp ảnh
     capture_screen
