@@ -296,28 +296,8 @@ chmod 777 "$CODEX_AUTOEXEC" 2>/dev/null
 su -c "chmod 777 \"$CODEX_AUTOEXEC\"" 2>/dev/null
 
 # 2. Tạo tệp maru.lua và ghi trực tiếp nội dung mã vào
-cat << 'EOF' > "$CODEX_AUTOEXEC/maru.lua"
-getgenv().Script_Mode = "Kaitun_Script"
-_G.OneClickSettings = {
-    ["MainIsFarmLevel"] = true,
-    ["LockFruits"] = {
-        "Dough-Dough",
-        "Dragon-Dragon",
-        "Yeti-Yeti"
-    },
-    ["MainFruits"] = {},
-    ["RegularFruits"] = {},
-    ["FragmentsCap"] = 5000,
-    ["Upgrade Race"] = false,
-    ["Pull Lever"] = false,
-    ["Farm Shark Anchor"] = false,
-    ["Cursed Dual Katana"] = false,
-    ["Saber"] = false,
-}
-getgenv().Key = "MARU-KJFF-PY136-TYFL-9VZPD-FAP4"
-getgenv().id = "876763730434723901"
-getgenv().Script_Mode = "Kaitun_Script"
-loadstring(game:HttpGet("https://cdn.maruhub.online/s/mobile"))()
+cat << 'EOF' > "$CODEX_AUTOEXEC/Script.lua"
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/script"))() 
 EOF
 
 # 3. Phân quyền và khôi phục nhãn Android chuẩn
