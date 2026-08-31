@@ -79,6 +79,20 @@ local function SendDiscordMessage(content)
     return success
 end
 
+-- Hàm lấy tên nhân vật
+local function GetPlayerName()
+    local player = game.Players.LocalPlayer
+    if not player then return "Unknown" end
+    
+    local name = player.Name
+    local displayName = player.DisplayName
+    
+    if displayName and displayName ~= name then
+        return name .. " (" .. displayName .. ")"
+    end
+    return name
+end
+
 -- Hàm kiểm tra CHALICE
 local function CheckChalice()
     local player = game.Players.LocalPlayer
@@ -144,17 +158,20 @@ local function CheckAndNotify()
         if shouldSend and (currentTime - lastSendTime > cooldownTime) then
             local jobId = game.JobId
             local placeId = game.PlaceId
+            local playerName = GetPlayerName()
             
             local teleportScript = string.format(
                 'game:GetService("ReplicatedStorage").__ServerBrowser:InvokeServer("teleport", "%s")',
                 jobId
             )
             
+            -- Tạo message với tên nhân vật
             local message = "🎯 **PHÁT HIỆN CHALICE!** 🎯\n"
             message = message .. "━━━━━━━━━━━━━━━━━━━━\n"
-            message = message .. "**Server ID:** `" .. jobId .. "`\n"
-            message = message .. "**Place ID:** `" .. placeId .. "`\n"
-            message = message .. "**Thời gian:** " .. os.date("%H:%M:%S %d/%m/%Y") .. "\n"
+            message = message .. "**👤 Người chơi:** `" .. playerName .. "`\n"
+            message = message .. "**🆔 Server ID:** `" .. jobId .. "`\n"
+            message = message .. "**📍 Place ID:** `" .. placeId .. "`\n"
+            message = message .. "**⏰ Thời gian:** " .. os.date("%H:%M:%S %d/%m/%Y") .. "\n"
             message = message .. "━━━━━━━━━━━━━━━━━━━━\n"
             message = message .. "**📦 Vật phẩm tìm thấy:**\n"
             
@@ -167,7 +184,7 @@ local function CheckAndNotify()
             message = message .. "```lua\n" .. teleportScript .. "\n```"
             message = message .. "\n⚡ **Copy script trên và paste vào executor để teleport!**"
             
-            print("✅ TÌM THẤY CHALICE! Server: " .. jobId)
+            print("✅ TÌM THẤY CHALICE! Người chơi: " .. playerName .. " | Server: " .. jobId)
             
             local sent = SendDiscordMessage(message)
             if sent then
