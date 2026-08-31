@@ -309,9 +309,9 @@ _G.OneClickSettings = {
     ["RegularFruits"] = {},
     ["FragmentsCap"] = 5000,
     ["Upgrade Race"] = false,
-    ["Pull Lever"] = true,
+    ["Pull Lever"] = false,
     ["Farm Shark Anchor"] = false,
-    ["Cursed Dual Katana"] = true,
+    ["Cursed Dual Katana"] = false,
     ["Saber"] = false,
 }
 getgenv().Key = "MARU-KJFF-PY136-TYFL-9VZPD-FAP4"
