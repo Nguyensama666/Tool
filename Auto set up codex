@@ -285,7 +285,7 @@ else
 fi
 
 log "✅ Đã chạy tool Cookie Login!"
-sleep 3
+sleep 1
 
 log "📁 Copy script vào Codex/Autoexec..."
 log "📁 Đang khởi tạo trực tiếp script maru.lua vào Codex/Autoexec..."
