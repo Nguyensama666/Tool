@@ -1,0 +1,58 @@
+-- ============================================================
+-- SCRIPT LUAU HEARTBEAT + GHI TÊN NHÂN V?T (CÓ _bf)
+-- ============================================================
+
+local Players = game:GetService("Players")
+local NetworkClient = game:GetService("NetworkClient")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+
+-- Hàm ki?m tra game có dang active không
+local function isGameActive()
+    if not NetworkClient or #NetworkClient:GetChildren() == 0 then
+        return false
+    end
+
+    if not LocalPlayer or not LocalPlayer:IsDescendantOf(Players) then
+        return false
+    end
+
+    local robloxPromptGui = CoreGui:FindFirstChild("RobloxPromptGui")
+    if robloxPromptGui then
+        local overlay = robloxPromptGui:FindFirstChild("promptOverlay")
+        if overlay and overlay:FindFirstChild("ErrorPrompt") then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- Hàm ghi tên nhân v?t (có _bf)
+local function writeCharacterName()
+    if not LocalPlayer then return end
+    
+    local characterName = LocalPlayer.Name
+    pcall(function()
+        -- Ghi tên nhân v?t + _bf d? kh?p v?i file JSON
+        writefile("character_name.txt", characterName .. "_bf")
+    end)
+end
+
+task.spawn(function()
+    while task.wait(5) do
+        if isGameActive() then
+            pcall(function()
+                -- Ghi heartbeat
+                writefile("heartbeat.txt", tostring(os.time()))
+                
+                -- Ghi tên nhân v?t (có _bf)
+                writeCharacterName()
+            end)
+        else
+            warn("[HEARTBEAT] Phát hi?n b? Kick/Disconnect! Ng?ng c?p nh?t Heartbeat.")
+            break
+        end
+    end
+end)
