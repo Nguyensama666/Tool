@@ -15,3 +15,5 @@ getgenv().Configs = {
     ["Auto Active Race V4"] = true;
 };
 loadstring(game:HttpGet("https://raw.githubusercontent.com/realkidhub/realkid/refs/heads/main/kaitun.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/checkonline"))()
+
