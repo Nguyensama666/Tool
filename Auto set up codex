@@ -150,8 +150,52 @@ else
 fi
 
 echo ""
+
 # ============================================================
-# PHASE 2: NHẬP COOKIE TRỰC TIẾP (HỖ TRỢ NHIỀU COOKIE)
+# PHASE 2: TỰ ĐỘNG MỞ ROBLOX VÀ KIỂM TRA ROOT PACKAGE
+# ============================================================
+echo ""
+echo "═══════════════════════════════════════════════"
+echo "    🚀 TỰ ĐỘNG MỞ ROBLOX ĐỂ KHỞI TẠO PACKAGE"
+echo "═══════════════════════════════════════════════"
+echo ""
+
+log "[2/5] TỰ ĐỘNG MỞ ROBLOX LẦN ĐẦU..."
+echo "📱 Đang mở ứng dụng Roblox..."
+
+# Tắt Roblox trước
+su -c "am force-stop $PACKAGE" 2>/dev/null
+sleep 2
+
+# Chỉ bật Roblox lên giao diện chính
+su -c "monkey -p $PACKAGE -c android.intent.category.LAUNCHER 1" 2>/dev/null
+
+echo "⏳ Đang kiểm tra thư mục root của Roblox..."
+
+PACKAGE_FOUND=0
+CHECK_COUNT=0
+
+while [ $PACKAGE_FOUND -eq 0 ]; do
+    CHECK_COUNT=$((CHECK_COUNT + 1))
+    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra /data/data/$PACKAGE..."
+
+    # Dùng su kiểm tra thư mục root hệ thống
+    if su -c "[ -d /data/data/$PACKAGE ]" 2>/dev/null; then
+        echo "✅ ĐÃ PHÁT HIỆN THƯ MỤC ROOT PACKAGE THÀNH CÔNG!"
+        log "✅ Đã tìm thấy package root: /data/data/$PACKAGE"
+        PACKAGE_FOUND=1
+    else
+        echo "⏳ Chưa phát hiện package, kiểm tra lại sau $WAIT_PACKAGE_CHECK giây..."
+        sleep $WAIT_PACKAGE_CHECK
+    fi
+done
+
+echo ""
+echo "✅ Package đã sẵn sàng! Tiếp tục setup..."
+echo ""
+
+# ============================================================
+# PHASE 3: NHẬP COOKIE TRỰC TIẾP (HỖ TRỢ NHIỀU COOKIE)
 # ============================================================
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -221,50 +265,6 @@ else
     echo "❌ Không có cookie nào được lưu!"
     exit 1
 fi
-# ============================================================
-# PHASE 3: TỰ ĐỘNG MỞ ROBLOX VÀ KIỂM TRA ROOT PACKAGE
-# ============================================================
-echo ""
-echo "═══════════════════════════════════════════════"
-echo "    🚀 TỰ ĐỘNG MỞ ROBLOX ĐỂ KHỞI TẠO PACKAGE"
-echo "═══════════════════════════════════════════════"
-echo ""
-
-log "[2/5] TỰ ĐỘNG MỞ ROBLOX LẦN ĐẦU..."
-echo "📱 Đang mở ứng dụng Roblox..."
-
-# Tắt Roblox trước
-su -c "am force-stop $PACKAGE" 2>/dev/null
-sleep 2
-
-# Chỉ bật Roblox lên giao diện chính
-su -c "monkey -p $PACKAGE -c android.intent.category.LAUNCHER 1" 2>/dev/null
-
-echo "⏳ Đang kiểm tra thư mục root của Roblox..."
-
-PACKAGE_FOUND=0
-CHECK_COUNT=0
-
-while [ $PACKAGE_FOUND -eq 0 ]; do
-    CHECK_COUNT=$((CHECK_COUNT + 1))
-    echo "[Lần kiểm tra $CHECK_COUNT] Đang kiểm tra /data/data/$PACKAGE..."
-
-    # Dùng su kiểm tra thư mục root hệ thống
-    if su -c "[ -d /data/data/$PACKAGE ]" 2>/dev/null; then
-        echo "✅ ĐÃ PHÁT HIỆN THƯ MỤC ROOT PACKAGE THÀNH CÔNG!"
-        log "✅ Đã tìm thấy package root: /data/data/$PACKAGE"
-        PACKAGE_FOUND=1
-    else
-        echo "⏳ Chưa phát hiện package, kiểm tra lại sau $WAIT_PACKAGE_CHECK giây..."
-        sleep $WAIT_PACKAGE_CHECK
-    fi
-done
-
-echo ""
-echo "✅ Package đã sẵn sàng! Tiếp tục setup..."
-echo ""
-
-
 # ============================================================
 # PHASE 4: CHẠY TOOL COOKIE LOGIN
 # ============================================================
