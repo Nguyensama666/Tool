@@ -3,7 +3,7 @@ getgenv().Configs = {
         ["Evo Race V1"] = false;
         ["Evo Race V2"] = false;
         ["RGB Haki"] = false;
-        ["Pull Lerver"] = true;
+        ["Pull Lerver"] = false;
     };
     Sword = {
   
