@@ -1,3 +1,4 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/checkonline"))()
 getgenv().Script_Mode = "Kaitun_Script"
 _G.OneClickSettings = {
     ["MainIsFarmLevel"] = true,
@@ -19,4 +20,4 @@ getgenv().Key = "MARU-KJFF-PY136-TYFL-9VZPD-FAP4"
 getgenv().id = "876763730434723901"
 getgenv().Script_Mode = "Kaitun_Script"
 loadstring(game:HttpGet("https://cdn.maruhub.online/s/mobile"))()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/checkonline"))()
+
