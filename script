@@ -6,6 +6,10 @@ _G.OneClickSettings = {
         "Dough-Dough",
         "Dragon-Dragon",
         "Yeti-Yeti"
+        "T-Rex-T-Rex",
+        "Shadow-Shadow",
+        "Tiger-Tiger",
+        "Kitsune-Kitsune"
     },
     ["MainFruits"] = {},
     ["RegularFruits"] = {},
