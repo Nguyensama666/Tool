@@ -1,3 +1,23 @@
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/checkonline"))()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/WhiteX1208/Scripts/refs/heads/main/KaitunBF.luau"))()
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Nguyensama666/Tool/refs/heads/main/checkonline"))()
+getgenv().Script_Mode = "Kaitun_Script"
+_G.OneClickSettings = {
+    ["MainIsFarmLevel"] = true,
+    ["LockFruits"] = {
+        "Dough-Dough",
+        "Dragon-Dragon",
+        "Yeti-Yeti"
+    },
+    ["MainFruits"] = {},
+    ["RegularFruits"] = {},
+    ["FragmentsCap"] = 5000,
+    ["Upgrade Race"] = false,
+    ["Pull Lever"] = false,
+    ["Farm Shark Anchor"] = false,
+    ["Cursed Dual Katana"] = false,
+    ["Saber"] = false,
+}
+getgenv().Key = "MARU-KJFF-PY136-TYFL-9VZPD-FAP4"
+getgenv().id = "876763730434723901"
+getgenv().Script_Mode = "Kaitun_Script"
+loadstring(game:HttpGet("https://cdn.maruhub.online/s/mobile"))()
